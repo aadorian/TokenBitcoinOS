@@ -4,9 +4,12 @@ It is a simple fungible token managed by a reference NFT. The NFT has a state th
 
 NOTE: you may need to install Wasm WASI P1 support:
 
+
 ```sh
 rustup target add wasm32-wasip1
 ```
+
+
 
 Build with:
 ```sh
