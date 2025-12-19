@@ -2,6 +2,81 @@ This is a [Charms](https://charms.dev) app.
 
 It is a simple fungible token managed by a reference NFT. The NFT has a state that specifies the remaining total supply of the tokens available to mint. If you control the NFT, you can mint new tokens.
 
+## CI/CD Status
+
+[![CI/CD](https://github.com/aadorian/TokenBitcoinOS/actions/workflows/my-token-ci.yml/badge.svg)](https://github.com/aadorian/TokenBitcoinOS/actions/workflows/my-token-ci.yml)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![Rust Version](https://img.shields.io/badge/rust-1.91.1-orange.svg)](https://www.rust-lang.org)
+
+### Latest Build Status
+
+| Metric | Status | Details |
+|--------|--------|---------|
+| **Build** | ✅ Passing | Release build successful |
+| **Tests** | ✅ 11/11 Passing | All unit tests passing |
+| **Doc Tests** | ⚠️ 2 Ignored | Documentation examples use `ignore` flag |
+| **Last Updated** | 2025-12-19 | Commit: `6c5e40e` |
+
+### Environment
+
+```
+Rust Version:  1.91.1 (ed61e7d7e 2025-11-07)
+Cargo Version: 1.91.1 (ea2d97820 2025-10-10)
+Target:        wasm32-wasip1
+Charms SDK:    v0.10.0
+```
+
+### Test Coverage
+
+```
+Unit Tests:        11 tests (100% passing)
+├─ Hash Tests:      4 tests ✅
+├─ Serialization:   4 tests ✅
+└─ Data Integrity:  3 tests ✅
+
+Integration Tests: 0 tests
+Doc Tests:         2 tests (ignored - examples only)
+```
+
+### Build Artifacts
+
+| Artifact | Path | Size |
+|----------|------|------|
+| WASM Binary | `target/wasm32-wasip1/release/my-token.wasm` | Optimized |
+| Debug Binary | `target/debug/my-token` | With symbols |
+
+### Quick Commands
+
+```sh
+# Run all checks (recommended before commit)
+cargo test && cargo build --release && cargo doc --no-deps
+
+# Full CI pipeline locally
+cargo fmt --check && cargo clippy -- -D warnings && cargo test
+
+# Generate coverage report (requires cargo-tarpaulin)
+cargo tarpaulin --out Html --output-dir coverage
+```
+
+### GitHub Actions CI/CD Pipeline
+
+The project includes a comprehensive GitHub Actions workflow (`.github/workflows/my-token-ci.yml`) that automatically runs on push/PR:
+
+**Jobs:**
+- 🧪 **Test Suite** - Runs all unit and doc tests
+- 🔨 **Build** - Builds debug, release, and WASM binaries
+- 🔍 **Lint** - Checks formatting (rustfmt) and code quality (clippy)
+- 📚 **Docs** - Generates and uploads documentation
+- 🔐 **Security** - Runs cargo-audit for vulnerability scanning
+- 📊 **Coverage** - Generates code coverage reports
+
+**Artifacts Generated:**
+- WASM binary (`my-token.wasm`)
+- Documentation (HTML)
+- Coverage reports (Codecov integration)
+
+All jobs must pass before merging to main branch.
+
 ## Documentation
 
 The codebase includes comprehensive rustdoc documentation covering:
