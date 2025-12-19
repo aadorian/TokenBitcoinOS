@@ -2,6 +2,33 @@ This is a [Charms](https://charms.dev) app.
 
 It is a simple fungible token managed by a reference NFT. The NFT has a state that specifies the remaining total supply of the tokens available to mint. If you control the NFT, you can mint new tokens.
 
+## Documentation
+
+The codebase includes comprehensive rustdoc documentation covering:
+- Module-level overview of the NFT and token contract system
+- Detailed function documentation with arguments, returns, and validation rules
+- Examples and usage patterns
+- Contract features and supply management mechanisms
+
+To generate and view the documentation:
+
+```sh
+cargo doc --open
+```
+
+This will build the HTML documentation and open it in your default browser, providing detailed information about all public APIs, internal functions, and the contract logic.
+
+### Documentation Commands
+
+| Command | Action |
+|---------|--------|
+| `cargo doc` | Generates documentation for your project and all dependencies. |
+| `cargo doc --open` | Generates the docs and immediately opens them in your default browser. |
+| `cargo doc --no-deps` | Generates docs only for your local crate, skipping dependencies (faster). |
+| `cargo test --doc` | Runs the code examples inside your documentation to ensure they actually work! |
+
+## Installation
+
 NOTE: you may need to install Wasm WASI P1 support:
 
 
@@ -9,7 +36,7 @@ NOTE: you may need to install Wasm WASI P1 support:
 rustup target add wasm32-wasip1
 ```
 
-
+## Building
 
 Build with:
 ```sh
@@ -23,6 +50,39 @@ Get the verification key for the app with:
 ```sh
 charms app vk $app_bin
 ```
+
+## Testing
+
+### Unit Tests
+
+The project includes comprehensive unit tests covering:
+- Hash function correctness and consistency
+- NftContent serialization/deserialization
+- Edge cases (zero supply, max supply, empty tickers)
+- Data structure integrity (Clone, Debug traits)
+
+Tests are organized in the `tests/` directory:
+- `tests/integration_tests.rs` - Integration tests for public API
+
+Run the tests with:
+
+```sh
+cargo test
+```
+
+Run specific test file:
+
+```sh
+cargo test --test integration_tests
+```
+
+For verbose output:
+
+```sh
+cargo test -- --nocapture
+```
+
+### Integration Testing
 
 Test the app with a simple NFT mint example:
 
