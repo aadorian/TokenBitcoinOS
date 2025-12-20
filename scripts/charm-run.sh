@@ -19,7 +19,6 @@ NC='\033[0m' # No Color
 NETWORK="testnet4"
 WALLET="nftcharm_wallet"
 SPELL_DIR="my-token/spells"
-APP_BIN="my-token/target/wasm32-unknown-unknown/release/my_token.wasm"
 
 # Default spell
 SPELL_NAME="${1:-mint-nft}"
@@ -36,15 +35,19 @@ if [ ! -f "$SPELL_FILE" ]; then
     exit 1
 fi
 
-# Check if app binary exists
-if [ ! -f "$APP_BIN" ]; then
-    echo -e "${YELLOW}App binary not found. Building...${NC}"
-    cd my-token
-    charms app build
-    cd ..
-    echo -e "${GREEN}Build complete!${NC}"
-    echo
+# Build the app and get the binary path
+echo -e "${YELLOW}Building app...${NC}"
+cd my-token
+APP_BIN=$(charms app build)
+cd ..
+
+if [ -z "$APP_BIN" ]; then
+    echo -e "${RED}Error: Failed to build app${NC}"
+    exit 1
 fi
+
+echo -e "${GREEN}Build complete: ${APP_BIN}${NC}"
+echo
 
 # Export UTXO variables
 echo -e "${YELLOW}Fetching UTXO variables...${NC}"
@@ -88,7 +91,7 @@ export app_bin="${APP_BIN}"
 
 # Get app verification key
 echo -e "${YELLOW}Getting app verification key...${NC}"
-export app_vk=$(charms app vk "${APP_BIN}" 2>/dev/null)
+export app_vk=$(charms app vk "$app_bin")
 
 if [ -z "$app_vk" ]; then
     echo -e "${RED}Error: Could not get app verification key${NC}"
