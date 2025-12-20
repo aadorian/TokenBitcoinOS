@@ -1,0 +1,8 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Question or Discussion
+    url: https://github.com/yourusername/NFTCharm/discussions
+    about: Ask questions or discuss ideas with the community
+  - name: Security Issue
+    url: https://github.com/yourusername/NFTCharm/security/advisories/new
+    about: Report security vulnerabilities privately

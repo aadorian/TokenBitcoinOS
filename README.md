@@ -139,3 +139,54 @@ This is a simple fungible token managed by a reference NFT:
 - Only the NFT controller can mint new tokens
 - Once minted, tokens can be freely transferred without the NFT
 - The system uses Charms' app contract model with verification keys
+
+## Contributing
+
+We welcome contributions! Please follow these guidelines:
+
+### Commit Message Convention
+
+This project follows [Conventional Commits](https://www.conventionalcommits.org/) specification. All commit messages must follow this format:
+
+```
+<type>(<scope>): <subject>
+```
+
+**Types:**
+- `feat`: A new feature
+- `fix`: A bug fix
+- `docs`: Documentation only changes
+- `style`: Formatting changes (no code change)
+- `refactor`: Code change that neither fixes a bug nor adds a feature
+- `perf`: Performance improvements
+- `test`: Adding or updating tests
+- `build`: Changes to build system or dependencies
+- `ci`: Changes to CI configuration
+- `chore`: Other changes that don't modify src or test files
+
+**Examples:**
+```bash
+feat(my-token): add token minting functionality
+fix(ci): resolve clippy warnings in workflow
+docs: update README with installation instructions
+```
+
+### Setting Up Commit Template
+
+To use the provided commit message template:
+
+```bash
+git config commit.template .gitmessage
+```
+
+### Development Workflow
+
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feat/my-new-feature`
+3. Make your changes and ensure tests pass: `cargo test`
+4. Ensure code passes linting: `cargo clippy -- -D warnings`
+5. Format your code: `cargo fmt`
+6. Commit using conventional commits format
+7. Push and create a Pull Request
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
