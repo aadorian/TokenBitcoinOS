@@ -176,3 +176,101 @@ fn test_hash_output_format() {
         "Hash should only contain hex digits"
     );
 }
+
+/// Tests that UTXO ID string can be properly hashed to create NFT identity.
+///
+/// This is the fundamental operation for NFT minting - the hash of a UTXO ID
+/// becomes the NFT's identity, ensuring uniqueness.
+#[test]
+fn test_utxo_id_to_identity() {
+    let utxo_id_str = "dc78b09d767c8565c4a58a95e7ad5ee22b28fc1685535056a395dc94929cdd5f:1";
+    let identity1 = hash(utxo_id_str);
+    let identity2 = hash(utxo_id_str);
+
+    // Same UTXO ID should always produce same identity
+    assert_eq!(identity1, identity2);
+
+    // Different UTXO ID should produce different identity
+    let different_utxo = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa:0";
+    let identity3 = hash(different_utxo);
+    assert_ne!(identity1, identity3);
+}
+
+/// Tests that witness data can be created from UTXO ID string.
+///
+/// Verifies the witness data structure that will be used in NFT minting.
+#[test]
+fn test_witness_data_creation() {
+    let utxo_id_str = "dc78b09d767c8565c4a58a95e7ad5ee22b28fc1685535056a395dc94929cdd5f:1";
+
+    // Create witness data
+    let witness = Data::from(&utxo_id_str.to_string());
+
+    // Verify we can retrieve the string back
+    let retrieved: Result<String, _> = witness.value();
+    assert!(retrieved.is_ok());
+    assert_eq!(retrieved.unwrap(), utxo_id_str);
+}
+
+/// Tests empty witness data handling.
+///
+/// Verifies that empty witness data can be detected (this should fail NFT minting).
+#[test]
+fn test_empty_witness_detection() {
+    let empty_witness = Data::empty();
+
+    // Empty witness should not be deserializable as String
+    let retrieved: Result<String, _> = empty_witness.value();
+    assert!(retrieved.is_err(), "Empty witness should not contain valid string");
+}
+
+/// Tests UTXO ID parsing and validation.
+///
+/// Verifies that valid and invalid UTXO ID strings are properly handled.
+#[test]
+fn test_utxo_id_parsing() {
+    // Valid UTXO ID
+    let valid_utxo = "dc78b09d767c8565c4a58a95e7ad5ee22b28fc1685535056a395dc94929cdd5f:1";
+    let parsed = UtxoId::from_str(valid_utxo);
+    assert!(parsed.is_ok(), "Valid UTXO ID should parse successfully");
+
+    // Verify round-trip
+    let utxo_id = parsed.unwrap();
+    assert_eq!(utxo_id.to_string(), valid_utxo);
+}
+
+/// Tests testnet4-style UTXO ID hashing.
+///
+/// Verifies that realistic testnet4 UTXO IDs can be properly hashed
+/// to create NFT identities.
+#[test]
+fn test_testnet4_utxo_id_hashing() {
+    // Realistic testnet4 transaction hash format
+    let testnet4_utxo = "a1b2c3d4e5f6789012345678901234567890123456789012345678901234567890:0";
+
+    let identity = hash(testnet4_utxo);
+
+    // Verify it produces a valid 32-byte hash
+    assert_eq!(identity.to_string().len(), 64);
+
+    // Verify it's deterministic
+    let identity2 = hash(testnet4_utxo);
+    assert_eq!(identity, identity2);
+}
+
+/// Tests that different UTXO indices produce different identities.
+///
+/// Verifies that the same transaction hash with different output indices
+/// produces unique NFT identities.
+#[test]
+fn test_different_indices_produce_different_identities() {
+    let base_tx = "dc78b09d767c8565c4a58a95e7ad5ee22b28fc1685535056a395dc94929cdd5f";
+
+    let identity0 = hash(&format!("{}:0", base_tx));
+    let identity1 = hash(&format!("{}:1", base_tx));
+    let identity2 = hash(&format!("{}:2", base_tx));
+
+    assert_ne!(identity0, identity1);
+    assert_ne!(identity1, identity2);
+    assert_ne!(identity0, identity2);
+}

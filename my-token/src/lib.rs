@@ -123,7 +123,7 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction, w: &Data) -> bool {
 /// # Returns
 ///
 /// Returns `true` if all NFT minting conditions are satisfied, `false` otherwise.
-fn can_mint_nft(nft_app: &App, tx: &Transaction, w: &Data) -> bool {
+pub fn can_mint_nft(nft_app: &App, tx: &Transaction, w: &Data) -> bool {
     let w_str: Option<String> = w.value().ok();
 
     check!(w_str.is_some());
