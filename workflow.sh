@@ -129,15 +129,19 @@ cat ./spells/mint-nft.yaml | envsubst | charms spell check --prev-txs=${prev_txs
 echo "Setting funding UTXO..."
 if [ "$(echo "$unspent" | jq 'length')" -gt 1 ]; then
     funding_utxo=$(echo "$unspent" | jq -r '.[1] | "\(.txid):\(.vout)"')
-    funding_utxo_value=$(echo "$unspent" | jq -r '.[1].amount')
+    funding_utxo_value_btc=$(echo "$unspent" | jq -r '.[1].amount')
+    # Convert BTC to satoshis (multiply by 100000000)
+    funding_utxo_value=$(echo "$funding_utxo_value_btc * 100000000" | bc | cut -d'.' -f1)
     echo "funding_utxo: $funding_utxo"
-    echo "funding_utxo_value: $funding_utxo_value"
+    echo "funding_utxo_value: $funding_utxo_value satoshis ($funding_utxo_value_btc BTC)"
 else
     echo "Warning: Only one UTXO available, using the same one for funding"
     funding_utxo=$(echo "$unspent" | jq -r '.[0] | "\(.txid):\(.vout)"')
-    funding_utxo_value=$(echo "$unspent" | jq -r '.[0].amount')
+    funding_utxo_value_btc=$(echo "$unspent" | jq -r '.[0].amount')
+    # Convert BTC to satoshis (multiply by 100000000)
+    funding_utxo_value=$(echo "$funding_utxo_value_btc * 100000000" | bc | cut -d'.' -f1)
     echo "funding_utxo: $funding_utxo"
-    echo "funding_utxo_value: $funding_utxo_value"
+    echo "funding_utxo_value: $funding_utxo_value satoshis ($funding_utxo_value_btc BTC)"
 fi
 
 # Step 18: Get change address
@@ -148,3 +152,7 @@ echo "change_address: $change_address"
 # Step 19: Export RUST_LOG
 export RUST_LOG=info
 echo "RUST_LOG set to: $RUST_LOG"
+
+# Step 20: Execute spell prove
+echo "Running spell prove..."
+cat ./spells/mint-nft.yaml | envsubst | charms spell prove --app-bins=${app_bin} --prev-txs=$prev_txs --funding-utxo=$funding_utxo --funding-utxo-value=$funding_utxo_value --change-address=$change_address
