@@ -129,6 +129,11 @@ fn can_mint_nft(nft_app: &App, tx: &Transaction, w: &Data) -> bool {
     check!(w_str.is_some());
     let w_str = w_str.unwrap();
 
+    eprintln!("Minting NFT with witness UTXO: {}", w_str);
+    for (i, (utxo_id, _)) in tx.ins.iter().enumerate() {
+        eprintln!("Transaction Input #{}: {:?}", i, utxo_id);
+    }
+
     // can only mint an NFT with this contract if the hash of `w` is the identity of the NFT.
     check!(hash(&w_str) == nft_app.identity);
 
