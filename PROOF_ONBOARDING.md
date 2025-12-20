@@ -21,7 +21,7 @@
 ./workflow.sh
 ```
 
-The script will pause for 2 seconds between each step and display clear progress messages showing what action is being performed.
+The script automatically detects the Bitcoin network (testnet4, testnet, regtest, or mainnet) and uses the appropriate flags for all bitcoin-cli commands. It will pause for 2 seconds between each step and display clear progress messages showing what action is being performed.
 
 **Workflow steps**
 1. Build the app and generate verification key
@@ -36,11 +36,12 @@ charms spell prove --funding-utxo <FUNDING_UTXO> --funding-utxo-value <FUNDING_U
 ```bash
 bitcoin-cli signrawtransactionwithwallet "<TX_HEX>"
 ```
-7. Submit the signed transaction package to Bitcoin network:
+7. Submit the signed transactions to Bitcoin network individually:
 ```bash
-bitcoin-cli submitpackage '["<SIGNED_TX_HEX_1>", "<SIGNED_TX_HEX_2>"]'
+bitcoin-cli sendrawtransaction "<SIGNED_TX_HEX_1>"
+bitcoin-cli sendrawtransaction "<SIGNED_TX_HEX_2>"
 ```
-8. Extract transaction IDs and display mempool URLs for verification on testnet4
+8. Display transaction IDs and mempool URLs for verification on testnet4
 
 **Key log entries explained**
 - **CARGO_TARGET_DIR set/unset:** Controls where cargo builds; workflow temporarily sets it for the build.
@@ -81,6 +82,8 @@ Mempool URL: https://mempool.space/testnet4/tx/def456...
 - If wallet missing: create and fund `nftcharm_wallet`, or update the workflow to point at a loaded wallet.
 - If build fails: run `cargo build --release` inside `my-token/` to see compilation errors.
 - If proofs fail due to network calls: check network connectivity and charms API URL in environment variables.
+- If transactions fail mempool acceptance: The workflow uses `testmempoolaccept` to validate transactions before broadcasting. Check the rejection reason displayed in the error message.
+- If transactions are not fully signed: The workflow validates signing completeness. Ensure your wallet has the necessary private keys for all inputs.
 
 **Next steps**
 - Decode and review the raw transactions for the mint outputs.

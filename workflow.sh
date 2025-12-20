@@ -1,6 +1,22 @@
 #!/bin/bash
 set -e
 
+# Detect Bitcoin network
+NETWORK=$(bitcoin-cli getblockchaininfo 2>/dev/null | jq -r '.chain' || echo "main")
+if [ "$NETWORK" = "testnet4" ]; then
+    BTC_CLI="bitcoin-cli -testnet4"
+    echo "Detected testnet4 network"
+elif [ "$NETWORK" = "test" ]; then
+    BTC_CLI="bitcoin-cli -testnet"
+    echo "Detected testnet network"
+elif [ "$NETWORK" = "regtest" ]; then
+    BTC_CLI="bitcoin-cli -regtest"
+    echo "Detected regtest network"
+else
+    BTC_CLI="bitcoin-cli"
+    echo "Using mainnet"
+fi
+
 # Helper function to pause and show action
 pause_and_show() {
     echo ""
@@ -57,13 +73,13 @@ echo "app_vk exported: $app_vk"
 
 # Step 9: Check if bitcoind is running, start if not
 pause_and_show "Checking if bitcoind is running..."
-if ! bitcoin-cli getblockchaininfo &> /dev/null; then
+if ! $BTC_CLI getblockchaininfo &> /dev/null; then
     echo "Bitcoin server not running, starting bitcoind..."
     bitcoind -daemon
     echo "Waiting for bitcoind to start..."
     sleep 5
     # Wait for server to be ready
-    until bitcoin-cli getblockchaininfo &> /dev/null; do
+    until $BTC_CLI getblockchaininfo &> /dev/null; do
         echo "Waiting for bitcoind to be ready..."
         sleep 2
     done
@@ -77,26 +93,26 @@ pause_and_show "Checking for wallet (nftcharm_wallet)..."
 wallet_name="nftcharm_wallet"
 
 # Check if wallet is already loaded
-if bitcoin-cli listwallets | jq -e --arg name "$wallet_name" 'index($name) >= 0' &> /dev/null; then
+if $BTC_CLI listwallets | jq -e --arg name "$wallet_name" 'index($name) >= 0' &> /dev/null; then
     echo "Wallet '$wallet_name' is already loaded"
 else
     # Check if wallet exists in wallet directory
-    wallet_dir=$(bitcoin-cli listwalletdir)
+    wallet_dir=$($BTC_CLI listwalletdir)
     if echo "$wallet_dir" | jq -e --arg name "$wallet_name" '.wallets[] | select(.name == $name)' &> /dev/null; then
         echo "Wallet '$wallet_name' found, loading..."
-        bitcoin-cli loadwallet "$wallet_name"
+        $BTC_CLI loadwallet "$wallet_name"
         echo "Wallet '$wallet_name' loaded successfully"
     else
         # Wallet doesn't exist, create it
         echo "Wallet not found, creating wallet '$wallet_name'..."
-        bitcoin-cli createwallet "$wallet_name"
+        $BTC_CLI createwallet "$wallet_name"
         echo "Wallet '$wallet_name' created and loaded"
     fi
 fi
 
 # Step 11: Check for unspent bitcoin outputs
 pause_and_show "Checking for unspent outputs (UTXOs)..."
-unspent=$(bitcoin-cli -rpcwallet="nftcharm_wallet" listunspent)
+unspent=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent)
 if [ "$(echo "$unspent" | jq 'length')" -gt 0 ]; then
     echo "Found unspent outputs:"
     echo "$unspent" | jq '.'
@@ -119,7 +135,7 @@ echo "addr_0: $addr_0"
 # Step 13: Get raw transaction for prev_txs
 pause_and_show "Getting raw transaction data..."
 txid=$(echo "$unspent" | jq -r '.[0].txid')
-prev_txs=$(bitcoin-cli -rpcwallet="nftcharm_wallet" gettransaction "$txid" | jq -r '.hex')
+prev_txs=$($BTC_CLI -rpcwallet="nftcharm_wallet" gettransaction "$txid" | jq -r '.hex')
 echo "prev_txs (txid): $txid"
 echo "prev_txs (raw): ${prev_txs:0:64}..." # Show first 64 chars
 
@@ -159,7 +175,7 @@ fi
 
 # Step 18: Get change address
 pause_and_show "Getting change address for transaction outputs..."
-change_address=$(bitcoin-cli -rpcwallet="nftcharm_wallet" getrawchangeaddress)
+change_address=$($BTC_CLI -rpcwallet="nftcharm_wallet" getrawchangeaddress)
 echo "change_address: $change_address"
 
 # Step 19: Export RUST_LOG
@@ -181,25 +197,90 @@ echo "Second transaction hex (first 64 chars): ${tx_hex_2:0:64}..."
 
 # Step 22: Sign transactions with wallet
 pause_and_show "Signing transactions with wallet to add witness data..."
-signed_tx_1=$(bitcoin-cli -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_1" | jq -r '.hex')
-signed_tx_2=$(bitcoin-cli -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2" | jq -r '.hex')
-echo "Transactions signed successfully"
+sign_result_1=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_1")
+signed_tx_1=$(echo "$sign_result_1" | jq -r '.hex')
+complete_1=$(echo "$sign_result_1" | jq -r '.complete')
 
-# Step 23: Create transaction array for package submission
-pause_and_show "Creating transaction package array..."
-tx_array=$(jq -n --arg tx1 "$signed_tx_1" --arg tx2 "$signed_tx_2" '[$tx1, $tx2]')
-echo "Transaction package prepared"
+sign_result_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2")
+signed_tx_2=$(echo "$sign_result_2" | jq -r '.hex')
+complete_2=$(echo "$sign_result_2" | jq -r '.complete')
 
-# Step 24: Submit transaction package to Bitcoin network
-pause_and_show "Submitting transaction package to Bitcoin network..."
-submit_result=$(bitcoin-cli -rpcwallet="nftcharm_wallet" submitpackage "$tx_array")
-echo "$submit_result"
-echo "Transaction package submitted successfully"
+echo "Transaction 1 signing complete: $complete_1"
+echo "Transaction 2 signing complete: $complete_2"
 
-# Step 25: Extract and display transaction IDs
-pause_and_show "Extracting transaction IDs for mempool query..."
-txid_1=$(bitcoin-cli -rpcwallet="nftcharm_wallet" decoderawtransaction "$signed_tx_1" | jq -r '.txid')
-txid_2=$(bitcoin-cli -rpcwallet="nftcharm_wallet" decoderawtransaction "$signed_tx_2" | jq -r '.txid')
+if [ "$complete_1" != "true" ] || [ "$complete_2" != "true" ]; then
+    echo "⚠ Warning: One or more transactions are not fully signed!"
+    echo "Sign result 1:"
+    echo "$sign_result_1" | jq '.'
+    echo ""
+    echo "Sign result 2:"
+    echo "$sign_result_2" | jq '.'
+    exit 1
+fi
+
+echo "✓ Both transactions signed successfully"
+
+# Step 22.5: Test transactions before broadcasting
+pause_and_show "Testing transactions with mempool acceptance..."
+test_result_1=$($BTC_CLI testmempoolaccept "[\"$signed_tx_1\"]")
+test_result_2=$($BTC_CLI testmempoolaccept "[\"$signed_tx_2\"]")
+
+echo "Test result for transaction 1:"
+echo "$test_result_1" | jq '.'
+echo ""
+echo "Test result for transaction 2:"
+echo "$test_result_2" | jq '.'
+
+allowed_1=$(echo "$test_result_1" | jq -r '.[0].allowed')
+allowed_2=$(echo "$test_result_2" | jq -r '.[0].allowed')
+
+if [ "$allowed_1" != "true" ]; then
+    echo ""
+    echo "✗ Transaction 1 will be rejected by mempool!"
+    echo "Reject reason: $(echo "$test_result_1" | jq -r '.[0]."reject-reason"')"
+    exit 1
+fi
+
+if [ "$allowed_2" != "true" ]; then
+    echo ""
+    echo "✗ Transaction 2 will be rejected by mempool!"
+    echo "Reject reason: $(echo "$test_result_2" | jq -r '.[0]."reject-reason"')"
+    exit 1
+fi
+
+echo ""
+echo "✓ Both transactions passed mempool acceptance test"
+
+# Step 23: Submit signed transactions to Bitcoin network
+pause_and_show "Submitting first transaction to Bitcoin network..."
+echo "Attempting to broadcast first transaction..."
+if txid_1=$($BTC_CLI sendrawtransaction "$signed_tx_1" 2>&1); then
+    echo "✓ First transaction submitted successfully: $txid_1"
+else
+    echo "✗ Error submitting first transaction:"
+    echo "$txid_1"
+    echo ""
+    echo "Transaction hex (for manual inspection):"
+    echo "$signed_tx_1"
+    exit 1
+fi
+
+# Step 24: Submit second transaction to Bitcoin network
+pause_and_show "Submitting second transaction to Bitcoin network..."
+echo "Attempting to broadcast second transaction..."
+if txid_2=$($BTC_CLI sendrawtransaction "$signed_tx_2" 2>&1); then
+    echo "✓ Second transaction submitted successfully: $txid_2"
+else
+    echo "✗ Error submitting second transaction:"
+    echo "$txid_2"
+    echo ""
+    echo "Transaction hex (for manual inspection):"
+    echo "$signed_tx_2"
+    exit 1
+fi
+
+# Step 25: Display transaction IDs and mempool URLs
+pause_and_show "Displaying transaction details for mempool verification..."
 
 echo ""
 echo "=========================================="
@@ -211,3 +292,6 @@ echo ""
 echo "Transaction 2 ID: $txid_2"
 echo "Mempool URL: https://mempool.space/testnet4/tx/$txid_2"
 echo "=========================================="
+echo ""
+echo "✅ NFT minting workflow completed successfully!"
+echo "Visit the mempool URLs above to track transaction confirmations."
