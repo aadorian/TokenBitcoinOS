@@ -55,6 +55,30 @@ Stop daemon:
 bitcoin-cli -testnet4 stop
 ```
 
+## Quick Start - Running NFT Spells
+
+The easiest way to run NFT spell checks with automatic UTXO management:
+
+```bash
+# 1. Start Bitcoin daemon (if not running)
+bitcoind -testnet4 -daemon
+
+# 2. Make sure you have a funded wallet (see README_BITCOIN_CLI.md for details)
+bitcoin-cli -testnet4 -rpcwallet="nftcharm_wallet" listunspent 1
+
+# 3. Run a spell check (automatically fetches UTXOs and builds if needed)
+./scripts/charm-run.sh mint-nft
+```
+
+The [charm-run.sh](scripts/charm-run.sh) script automatically:
+- Fetches the first available UTXO from your wallet
+- Calculates the app_id (NFT identity) from the UTXO
+- Exports all required environment variables
+- Builds the app binary if it doesn't exist
+- Runs the spell check with proper variable substitution
+
+For more advanced workflows and manual UTXO management, see [scripts/README.md](scripts/README.md).
+
 ## Creating a New Token Project
 
 After installing charms, you can create a new token project using:
@@ -141,11 +165,17 @@ NFTCharm/
 │   │   └── send.yaml           # Spell to send tokens
 │   └── tests/
 │       └── integration_tests.rs # Integration tests
+├── scripts/                     # Utility scripts
+│   ├── charm-run.sh            # Automated spell runner with UTXO fetching
+│   ├── export-utxo.sh          # Minimal UTXO variable export script
+│   ├── setup-utxo-vars.sh      # Interactive UTXO setup script
+│   └── README.md               # Scripts documentation
 ├── .commitlintrc.json          # Conventional commits configuration
 ├── .gitmessage                 # Git commit message template
 ├── .gitignore                  # Git ignore rules for repository
 ├── CONTRIBUTING.md             # Contribution guidelines
 ├── README.md                   # Main project documentation
+├── README_BITCOIN_CLI.md       # Bitcoin CLI guide for testnet4
 └── README_DETAIL.md            # Detailed project information
 ```
 
@@ -227,6 +257,45 @@ Contains YAML spell files that define transactions:
 - **[.clippy.toml](my-token/.clippy.toml)**: Clippy linter settings
 - **[.rustfmt.toml](my-token/.rustfmt.toml)**: Rust code formatting rules
 - **[lint.sh](my-token/lint.sh)**: Automated linting script
+
+#### Utility Scripts (scripts/)
+
+**[scripts/charm-run.sh](scripts/charm-run.sh)**
+- Automated wrapper script for running spell checks
+- Automatically fetches UTXO variables from bitcoin-cli
+- Calculates app_id (SHA256 hash of UTXO ID)
+- Builds app binary if missing
+- Runs spell check with environment variable substitution
+- **Usage**: `./scripts/charm-run.sh [spell-name]`
+- **Example**: `./scripts/charm-run.sh mint-nft`
+
+**[scripts/export-utxo.sh](scripts/export-utxo.sh)**
+- Minimal script for exporting UTXO environment variables
+- Designed for use with `eval` command
+- Outputs export commands for: in_utxo_0, app_id, addr_0, prev_txs
+- **Usage**: `eval $(./scripts/export-utxo.sh)`
+
+**[scripts/setup-utxo-vars.sh](scripts/setup-utxo-vars.sh)**
+- Interactive script with detailed UTXO information
+- Lists all available UTXOs with confirmations and amounts
+- Exports environment variables
+- Saves variables to `.env.utxo` file for later use
+- **Usage**: `source ./scripts/setup-utxo-vars.sh`
+
+**[scripts/README.md](scripts/README.md)**
+- Comprehensive documentation for all utility scripts
+- Explains UTXO variable format and usage
+- Provides workflow examples and troubleshooting tips
+
+#### Documentation Files
+
+**[README_BITCOIN_CLI.md](README_BITCOIN_CLI.md)**
+- Complete Bitcoin CLI guide for testnet4 operations
+- Installation instructions for Bitcoin Core
+- Wallet setup and management
+- Transaction operations (send, list, create raw)
+- NFTCharm-specific workflows with example addresses
+- Troubleshooting guide
 
 ### Token System Overview
 
