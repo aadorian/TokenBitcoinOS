@@ -195,45 +195,29 @@ tx_hex_2=$(echo "$prove_output" | jq -r '.[1].bitcoin')
 echo "First transaction hex (first 64 chars): ${tx_hex_1:0:64}..."
 echo "Second transaction hex (first 64 chars): ${tx_hex_2:0:64}..."
 
-# Step 22: Sign transactions with wallet
-pause_and_show "Signing transactions with wallet to add witness data..."
+# Step 22: Sign and broadcast transaction 1 first (since TX2 depends on it)
+pause_and_show "Signing first transaction with wallet..."
 sign_result_1=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_1")
 signed_tx_1=$(echo "$sign_result_1" | jq -r '.hex')
 complete_1=$(echo "$sign_result_1" | jq -r '.complete')
 
-sign_result_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2")
-signed_tx_2=$(echo "$sign_result_2" | jq -r '.hex')
-complete_2=$(echo "$sign_result_2" | jq -r '.complete')
-
 echo "Transaction 1 signing complete: $complete_1"
-echo "Transaction 2 signing complete: $complete_2"
 
-if [ "$complete_1" != "true" ] || [ "$complete_2" != "true" ]; then
-    echo "⚠ Warning: One or more transactions are not fully signed!"
-    echo "Sign result 1:"
+if [ "$complete_1" != "true" ]; then
+    echo "⚠ Warning: Transaction 1 is not fully signed!"
+    echo "Sign result:"
     echo "$sign_result_1" | jq '.'
-    echo ""
-    echo "Sign result 2:"
-    echo "$sign_result_2" | jq '.'
     exit 1
 fi
 
-echo "✓ Both transactions signed successfully"
+echo "✓ Transaction 1 signed successfully"
 
-# Step 22.5: Test transactions before broadcasting
-pause_and_show "Testing transactions with mempool acceptance..."
+# Step 22.5: Test transaction 1 before broadcasting
+pause_and_show "Testing transaction 1 with mempool acceptance..."
 test_result_1=$($BTC_CLI testmempoolaccept "[\"$signed_tx_1\"]")
-test_result_2=$($BTC_CLI testmempoolaccept "[\"$signed_tx_2\"]")
-
-echo "Test result for transaction 1:"
 echo "$test_result_1" | jq '.'
-echo ""
-echo "Test result for transaction 2:"
-echo "$test_result_2" | jq '.'
 
 allowed_1=$(echo "$test_result_1" | jq -r '.[0].allowed')
-allowed_2=$(echo "$test_result_2" | jq -r '.[0].allowed')
-
 if [ "$allowed_1" != "true" ]; then
     echo ""
     echo "✗ Transaction 1 will be rejected by mempool!"
@@ -241,17 +225,9 @@ if [ "$allowed_1" != "true" ]; then
     exit 1
 fi
 
-if [ "$allowed_2" != "true" ]; then
-    echo ""
-    echo "✗ Transaction 2 will be rejected by mempool!"
-    echo "Reject reason: $(echo "$test_result_2" | jq -r '.[0]."reject-reason"')"
-    exit 1
-fi
+echo "✓ Transaction 1 passed mempool acceptance test"
 
-echo ""
-echo "✓ Both transactions passed mempool acceptance test"
-
-# Step 23: Submit signed transactions to Bitcoin network
+# Step 23: Submit transaction 1 to Bitcoin network
 pause_and_show "Submitting first transaction to Bitcoin network..."
 echo "Attempting to broadcast first transaction..."
 if txid_1=$($BTC_CLI sendrawtransaction "$signed_tx_1" 2>&1); then
@@ -265,7 +241,39 @@ else
     exit 1
 fi
 
-# Step 24: Submit second transaction to Bitcoin network
+# Step 24: Now sign transaction 2 (which depends on TX1 output)
+pause_and_show "Signing second transaction with wallet..."
+sign_result_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2" "[{\"txid\":\"$txid_1\",\"vout\":0,\"scriptPubKey\":\"$(echo "$sign_result_1" | jq -r '.hex' | $BTC_CLI decoderawtransaction /dev/stdin | jq -r '.vout[0].scriptPubKey.hex')\",\"amount\":$(echo "$sign_result_1" | jq -r '.hex' | $BTC_CLI decoderawtransaction /dev/stdin | jq -r '.vout[0].value')}]")
+signed_tx_2=$(echo "$sign_result_2" | jq -r '.hex')
+complete_2=$(echo "$sign_result_2" | jq -r '.complete')
+
+echo "Transaction 2 signing complete: $complete_2"
+
+if [ "$complete_2" != "true" ]; then
+    echo "⚠ Warning: Transaction 2 is not fully signed!"
+    echo "Sign result:"
+    echo "$sign_result_2" | jq '.'
+    exit 1
+fi
+
+echo "✓ Transaction 2 signed successfully"
+
+# Step 24.5: Test transaction 2 before broadcasting
+pause_and_show "Testing transaction 2 with mempool acceptance..."
+test_result_2=$($BTC_CLI testmempoolaccept "[\"$signed_tx_2\"]")
+echo "$test_result_2" | jq '.'
+
+allowed_2=$(echo "$test_result_2" | jq -r '.[0].allowed')
+if [ "$allowed_2" != "true" ]; then
+    echo ""
+    echo "✗ Transaction 2 will be rejected by mempool!"
+    echo "Reject reason: $(echo "$test_result_2" | jq -r '.[0]."reject-reason"')"
+    exit 1
+fi
+
+echo "✓ Transaction 2 passed mempool acceptance test"
+
+# Step 25: Submit transaction 2 to Bitcoin network
 pause_and_show "Submitting second transaction to Bitcoin network..."
 echo "Attempting to broadcast second transaction..."
 if txid_2=$($BTC_CLI sendrawtransaction "$signed_tx_2" 2>&1); then
