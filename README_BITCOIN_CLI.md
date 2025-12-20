@@ -283,9 +283,12 @@ bitcoin-cli -testnet4 -rpcwallet="nftcharm_wallet" getbalance
 ```bash
 ADDR=$(bitcoin-cli -testnet4 -rpcwallet="nftcharm_wallet" getnewaddress)
 echo "Your address: $ADDR"
+# Example output: tb1q4hljlww9gw6vdk7gakw9r5ktplhxj5knecawqt
 ```
 
-2. **Get funds from faucet** (paste your address)
+2. **Get funds from faucet**
+[Faucet](https://faucet.testnet4.dev/)
+ (paste your address, e.g., tb1q4hljlww9gw6vdk7gakw9r5ktplhxj5knecawqt)
 
 3. **Wait for confirmation:**
 ```bash
