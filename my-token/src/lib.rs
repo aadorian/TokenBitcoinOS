@@ -67,10 +67,10 @@ pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
     assert_eq!(x, &empty);
     match app.tag {
         NFT => {
-            check!(nft_contract_satisfied(app, tx, w))
+            check!(nft_contract_satisfied(app, tx, w));
         },
         TOKEN => {
-            check!(token_contract_satisfied(app, tx))
+            check!(token_contract_satisfied(app, tx));
         },
         _ => unreachable!(),
     }
@@ -101,7 +101,7 @@ fn nft_contract_satisfied(app: &App, tx: &Transaction, w: &Data) -> bool {
         identity: app.identity.clone(),
         vk: app.vk.clone(),
     };
-    check!(can_mint_nft(app, tx, w) || can_mint_token(&token_app, tx));
+    check!(can_mint_nft(app, tx, w) || can_mint_token(token_app, tx));
     true
 }
 
@@ -243,17 +243,17 @@ fn can_mint_token(token_app: &App, tx: &Transaction) -> bool {
     };
     let outgoing_supply = nft_content.remaining;
 
-    if !(incoming_supply >= outgoing_supply) {
+    if incoming_supply < outgoing_supply {
         eprintln!("incoming remaining supply must be >= outgoing remaining supply");
         return false;
     }
 
-    let Some(input_token_amount) = sum_token_amount(&token_app, tx.ins.iter().map(|(_, v)| v)).ok()
+    let Some(input_token_amount) = sum_token_amount(token_app, tx.ins.iter().map(|(_, v)| v)).ok()
     else {
         eprintln!("could not determine input total token amount");
         return false;
     };
-    let Some(output_token_amount) = sum_token_amount(&token_app, tx.outs.iter()).ok() else {
+    let Some(output_token_amount) = sum_token_amount(token_app, tx.outs.iter()).ok() else {
         eprintln!("could not determine output total token amount");
         return false;
     };

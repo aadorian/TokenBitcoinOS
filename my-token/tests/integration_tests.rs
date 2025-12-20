@@ -1,7 +1,7 @@
 //! Integration tests for the NFT token contract.
 //!
 //! These tests verify the core functionality of the contract including
-//! hash operations and NftContent data structure behavior.
+//! hash operations and `NftContent` data structure behavior.
 
 use charms_sdk::data::{Data, UtxoId};
 use my_token::{hash, NftContent};
@@ -43,9 +43,9 @@ fn test_hash_uniqueness() {
     assert_ne!(hash1, hash2, "Different inputs should produce different hashes");
 }
 
-/// Tests NftContent serialization and deserialization.
+/// Tests `NftContent` serialization and deserialization.
 ///
-/// Verifies that NftContent can be properly serialized to and deserialized from Data.
+/// Verifies that `NftContent` can be properly serialized to and deserialized from Data.
 #[test]
 fn test_nft_content_serialization() {
     let content = NftContent {
@@ -63,7 +63,7 @@ fn test_nft_content_serialization() {
     assert_eq!(deserialized.remaining, content.remaining);
 }
 
-/// Tests NftContent with zero remaining supply.
+/// Tests `NftContent` with zero remaining supply.
 ///
 /// Verifies that an NFT with zero remaining tokens can be created.
 #[test]
@@ -79,7 +79,7 @@ fn test_nft_content_zero_remaining() {
     assert_eq!(deserialized.remaining, 0);
 }
 
-/// Tests NftContent with maximum u64 remaining supply.
+/// Tests `NftContent` with maximum u64 remaining supply.
 ///
 /// Verifies that an NFT can handle the maximum possible supply value.
 #[test]
@@ -95,9 +95,9 @@ fn test_nft_content_max_remaining() {
     assert_eq!(deserialized.remaining, u64::MAX);
 }
 
-/// Tests NftContent clone functionality.
+/// Tests `NftContent` clone functionality.
 ///
-/// Verifies that NftContent implements Clone correctly.
+/// Verifies that `NftContent` implements Clone correctly.
 #[test]
 fn test_nft_content_clone() {
     let content = NftContent {
@@ -111,9 +111,9 @@ fn test_nft_content_clone() {
     assert_eq!(content.remaining, cloned.remaining);
 }
 
-/// Tests NftContent debug formatting.
+/// Tests `NftContent` debug formatting.
 ///
-/// Verifies that Debug trait is properly implemented for NftContent.
+/// Verifies that Debug trait is properly implemented for `NftContent`.
 #[test]
 fn test_nft_content_debug() {
     let content = NftContent {
@@ -121,14 +121,14 @@ fn test_nft_content_debug() {
         remaining: 100,
     };
 
-    let debug_output = format!("{:?}", content);
+    let debug_output = format!("{content:?}");
     assert!(debug_output.contains("DEBUG"));
     assert!(debug_output.contains("100"));
 }
 
 /// Tests that empty ticker is accepted.
 ///
-/// Verifies that NftContent can be created with an empty ticker string.
+/// Verifies that `NftContent` can be created with an empty ticker string.
 #[test]
 fn test_nft_content_empty_ticker() {
     let content = NftContent {
@@ -140,9 +140,9 @@ fn test_nft_content_empty_ticker() {
     assert_eq!(content.remaining, 1000);
 }
 
-/// Tests NftContent with long ticker string.
+/// Tests `NftContent` with long ticker string.
 ///
-/// Verifies that NftContent can handle arbitrarily long ticker strings.
+/// Verifies that `NftContent` can handle arbitrarily long ticker strings.
 #[test]
 fn test_nft_content_long_ticker() {
     let long_ticker = "A".repeat(1000);
