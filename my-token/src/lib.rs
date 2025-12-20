@@ -68,10 +68,10 @@ pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
     match app.tag {
         NFT => {
             check!(nft_contract_satisfied(app, tx, w))
-        }
+        },
         TOKEN => {
             check!(token_contract_satisfied(app, tx))
-        }
+        },
         _ => unreachable!(),
     }
     true

@@ -1,0 +1,34 @@
+# Clippy Configuration for my-token
+# https://doc.rust-lang.org/clippy/
+
+# Cognitive complexity threshold
+cognitive-complexity-threshold = 30
+
+# Avoid breaking exported APIs
+avoid-breaking-exported-api = true
+
+# Type complexity threshold
+type-complexity-threshold = 250
+
+# Maximum number of single char bindings
+single-char-binding-names-threshold = 4
+
+# Disallowed names (variable names to avoid)
+disallowed-names = ["foo", "bar", "baz", "quux"]
+
+# Literal representation improvements
+literal-representation-threshold = 16384
+
+# Array size threshold for passing by value
+trivial-copy-size-limit = 128
+pass-by-value-size-limit = 256
+
+# Function parameter limits
+too-many-arguments-threshold = 7
+too-many-lines-threshold = 100
+
+# Vector initialization capacity
+vec-box-size-threshold = 4096
+
+# Suppress specific lints for WASM targets
+suppress-restriction-lint-in-const = false

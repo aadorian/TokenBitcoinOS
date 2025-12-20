@@ -3,8 +3,8 @@
 //! These tests verify the core functionality of the contract including
 //! hash operations and NftContent data structure behavior.
 
-use my_token::{hash, NftContent};
 use charms_sdk::data::{Data, UtxoId};
+use my_token::{hash, NftContent};
 
 /// Tests the SHA-256 hash function.
 ///

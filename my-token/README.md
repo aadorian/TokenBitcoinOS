@@ -77,6 +77,49 @@ The project includes a comprehensive GitHub Actions workflow (`.github/workflows
 
 All jobs must pass before merging to main branch.
 
+## Code Quality and Linting
+
+The project uses comprehensive linting tools to ensure code quality, security, and consistency.
+
+### Linter Configuration
+
+- **rustfmt** - Code formatting ([.rustfmt.toml](.rustfmt.toml))
+- **clippy** - Rust linter ([.clippy.toml](.clippy.toml))
+- **Cargo lints** - Project-wide lint levels in [Cargo.toml](Cargo.toml)
+
+### Run Linters
+
+```sh
+# Run complete linting suite
+./lint.sh
+
+# Individual tools
+cargo fmt                    # Format code
+cargo fmt --check            # Check formatting
+cargo clippy                 # Run clippy lints
+cargo audit                  # Security audit
+```
+
+### Pre-commit Hook
+
+Set up automatic linting before commits:
+
+```sh
+git config core.hooksPath .git-hooks
+```
+
+The hook runs formatting, clippy, and tests automatically.
+
+### Lint Standards
+
+- ✅ Zero clippy warnings
+- ✅ Consistent code formatting
+- ✅ No `unsafe` code
+- ✅ All public APIs documented
+- ✅ No security vulnerabilities
+
+See [LINTING.md](LINTING.md) for detailed documentation.
+
 ## Documentation
 
 The codebase includes comprehensive rustdoc documentation covering:

@@ -1,0 +1,29 @@
+# Rustfmt Configuration for my-token (Stable Features Only)
+# https://rust-lang.github.io/rustfmt/
+
+# Edition
+edition = "2021"
+
+# Stable formatting options
+max_width = 100
+hard_tabs = false
+tab_spaces = 4
+newline_style = "Unix"
+
+# Stable options
+reorder_imports = true
+reorder_modules = true
+remove_nested_parens = true
+use_try_shorthand = true
+use_field_init_shorthand = true
+force_explicit_abi = true
+fn_call_width = 80
+chain_width = 60
+
+# Match expressions
+match_block_trailing_comma = true
+match_arm_leading_pipes = "Never"
+
+# Note: Many advanced features require nightly Rust
+# To use all features, run: rustup toolchain install nightly
+# Then format with: cargo +nightly fmt

@@ -1,0 +1,32 @@
+#!/bin/bash
+# Pre-commit hook for my-token
+# Runs basic linting before allowing commit
+
+echo "🔍 Running pre-commit checks..."
+
+# Run rustfmt
+echo "Checking code formatting..."
+if ! cargo fmt --all -- --check; then
+    echo "❌ Code formatting issues found!"
+    echo "Run 'cargo fmt' to fix formatting before committing."
+    exit 1
+fi
+
+# Run clippy
+echo "Running clippy..."
+if ! cargo clippy --all-targets --all-features -- -D warnings; then
+    echo "❌ Clippy found issues!"
+    echo "Fix clippy warnings before committing."
+    exit 1
+fi
+
+# Run tests
+echo "Running tests..."
+if ! cargo test --quiet; then
+    echo "❌ Tests failed!"
+    echo "Fix failing tests before committing."
+    exit 1
+fi
+
+echo "✅ All pre-commit checks passed!"
+exit 0

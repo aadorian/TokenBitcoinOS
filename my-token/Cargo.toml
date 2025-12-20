@@ -15,3 +15,24 @@ lto = "fat"
 codegen-units = 1
 strip = "symbols"
 panic = "abort"
+
+[lints.rust]
+unsafe_code = "forbid"
+missing_docs = "warn"
+unused_import_braces = "warn"
+unused_qualifications = "warn"
+
+[lints.clippy]
+# Allow specific lints to prevent conflicts with lint groups
+missing_errors_doc = { level = "allow", priority = 1 }
+missing_panics_doc = { level = "allow", priority = 1 }
+module_name_repetitions = { level = "allow", priority = 1 }
+must_use_candidate = { level = "allow", priority = 1 }
+cargo_common_metadata = { level = "allow", priority = 1 }
+needless_borrowed_reference = { level = "allow", priority = 1 }
+bool_comparison = { level = "allow", priority = 1 }
+
+# Lint groups (lower priority)
+pedantic = "warn"
+cargo = "warn"
+nursery = "warn"
