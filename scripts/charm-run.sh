@@ -86,6 +86,16 @@ export addr_0="${ADDRESS}"
 # Set app_bin
 export app_bin="${APP_BIN}"
 
+# Get app verification key
+echo -e "${YELLOW}Getting app verification key...${NC}"
+export app_vk=$(charms app vk "${APP_BIN}" 2>/dev/null)
+
+if [ -z "$app_vk" ]; then
+    echo -e "${RED}Error: Could not get app verification key${NC}"
+    echo "Make sure the app is built correctly"
+    exit 1
+fi
+
 # Display variables
 echo -e "${GREEN}UTXO Variables:${NC}"
 echo "  in_utxo_0: ${in_utxo_0}"
@@ -93,6 +103,7 @@ echo "  app_id:    ${app_id}"
 echo "  addr_0:    ${addr_0}"
 echo "  Amount:    ${AMOUNT} BTC"
 echo "  app_bin:   ${app_bin}"
+echo "  app_vk:    ${app_vk}"
 echo
 
 # Run the spell check
