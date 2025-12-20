@@ -155,4 +155,15 @@ echo "RUST_LOG set to: $RUST_LOG"
 
 # Step 20: Execute spell prove
 echo "Running spell prove..."
-cat ./spells/mint-nft.yaml | envsubst | charms spell prove --app-bins=${app_bin} --prev-txs=$prev_txs --funding-utxo=$funding_utxo --funding-utxo-value=$funding_utxo_value --change-address=$change_address
+prove_output=$(cat ./spells/mint-nft.yaml | envsubst | charms spell prove --app-bins=${app_bin} --prev-txs=$prev_txs --funding-utxo=$funding_utxo --funding-utxo-value=$funding_utxo_value --change-address=$change_address)
+echo "$prove_output"
+
+# Step 21: Extract transaction hexes from prove output
+echo "Extracting transaction hexes..."
+tx_array=$(echo "$prove_output" | jq -r '[.[] | select(.bitcoin) | .bitcoin]')
+echo "Transaction array: $tx_array"
+
+# Step 22: Submit transaction package to Bitcoin network
+echo "Submitting transaction package to Bitcoin network..."
+bitcoin-cli -rpcwallet="nftcharm_wallet" submitpackage "$tx_array"
+echo "Transaction package submitted successfully"
