@@ -1,11 +1,20 @@
 #!/bin/bash
 set -e
 
+# Helper function to pause and show action
+pause_and_show() {
+    echo ""
+    echo "==> $1"
+    sleep 2
+}
+
 # Step 1: Set up temporary cargo target directory
+pause_and_show "Setting up temporary cargo target directory..."
 export CARGO_TARGET_DIR=$(mktemp -d)/target
 echo "CARGO_TARGET_DIR set to: $CARGO_TARGET_DIR"
 
 # Step 2: Check if charms is installed, install if not
+pause_and_show "Checking if charms CLI is installed..."
 if ! command -v charms &> /dev/null; then
     echo "charms not found, installing version 0.10.0..."
     cargo install charms --version=0.10.0
@@ -14,6 +23,7 @@ else
 fi
 
 # Step 3: Check if spell template exists, create if not
+pause_and_show "Checking for spell template (my-token)..."
 if [ ! -d "my-token" ]; then
     echo "Spell template not found, creating my-token..."
     charms app new my-token
@@ -22,28 +32,31 @@ else
 fi
 
 # Step 4: Navigate to my-token directory
+pause_and_show "Navigating to my-token directory..."
 cd ./my-token
 echo "Changed directory to my-token"
 
 # Step 5: Unset CARGO_TARGET_DIR
+pause_and_show "Unsetting CARGO_TARGET_DIR..."
 unset CARGO_TARGET_DIR
 echo "CARGO_TARGET_DIR unset"
 
 # Step 6: Update cargo dependencies
-echo "Updating cargo dependencies..."
+pause_and_show "Updating cargo dependencies..."
 cargo update
 
 # Step 7: Build app and generate verification key
-echo "Building app and generating verification key..."
+pause_and_show "Building app and generating verification key..."
 app_bin=$(charms app build)
 charms app vk "$app_bin"
 
 # Step 8: Export verification key
+pause_and_show "Exporting verification key..."
 export app_vk=$(charms app vk "$app_bin")
 echo "app_vk exported: $app_vk"
 
 # Step 9: Check if bitcoind is running, start if not
-echo "Checking if bitcoind is running..."
+pause_and_show "Checking if bitcoind is running..."
 if ! bitcoin-cli getblockchaininfo &> /dev/null; then
     echo "Bitcoin server not running, starting bitcoind..."
     bitcoind -daemon
@@ -60,7 +73,7 @@ else
 fi
 
 # Step 10: Load or create wallet
-echo "Checking for wallet..."
+pause_and_show "Checking for wallet (nftcharm_wallet)..."
 wallet_name="nftcharm_wallet"
 
 # Check if wallet is already loaded
@@ -82,7 +95,7 @@ else
 fi
 
 # Step 11: Check for unspent bitcoin outputs
-echo "Checking for unspent outputs..."
+pause_and_show "Checking for unspent outputs (UTXOs)..."
 unspent=$(bitcoin-cli -rpcwallet="nftcharm_wallet" listunspent)
 if [ "$(echo "$unspent" | jq 'length')" -gt 0 ]; then
     echo "Found unspent outputs:"
@@ -93,7 +106,7 @@ else
 fi
 
 # Step 12: Extract UTXO values and set environment variables
-echo "Extracting UTXO values..."
+pause_and_show "Extracting UTXO values and computing app_id..."
 export in_utxo_0=$(echo "$unspent" | jq -r '.[0] | "\(.txid):\(.vout)"')
 echo "in_utxo_0: $in_utxo_0"
 
@@ -104,29 +117,29 @@ export addr_0=$(echo "$unspent" | jq -r '.[0].address')
 echo "addr_0: $addr_0"
 
 # Step 13: Get raw transaction for prev_txs
-echo "Getting raw transaction..."
+pause_and_show "Getting raw transaction data..."
 txid=$(echo "$unspent" | jq -r '.[0].txid')
 prev_txs=$(bitcoin-cli -rpcwallet="nftcharm_wallet" gettransaction "$txid" | jq -r '.hex')
 echo "prev_txs (txid): $txid"
 echo "prev_txs (raw): ${prev_txs:0:64}..." # Show first 64 chars
 
 # Step 14: Export variables for envsubst
-echo "Exporting variables for envsubst..."
+pause_and_show "Exporting variables for spell template substitution..."
 export app_id
 export app_vk
 export in_utxo_0
 export addr_0
 
 # Step 15: Show substituted YAML for debugging
-echo "Substituted YAML:"
+pause_and_show "Showing substituted YAML spell configuration..."
 cat ./spells/mint-nft.yaml | envsubst
 
 # Step 16: Execute spell check
-echo "Running spell check..."
+pause_and_show "Running spell check to validate configuration..."
 cat ./spells/mint-nft.yaml | envsubst | charms spell check --prev-txs=${prev_txs} --app-bins=${app_bin}
 
 # Step 17: Set funding UTXO (second UTXO, different from the one used for minting)
-echo "Setting funding UTXO..."
+pause_and_show "Setting funding UTXO for transaction fees..."
 if [ "$(echo "$unspent" | jq 'length')" -gt 1 ]; then
     funding_utxo=$(echo "$unspent" | jq -r '.[1] | "\(.txid):\(.vout)"')
     funding_utxo_value_btc=$(echo "$unspent" | jq -r '.[1].amount')
@@ -145,25 +158,56 @@ else
 fi
 
 # Step 18: Get change address
-echo "Getting change address..."
+pause_and_show "Getting change address for transaction outputs..."
 change_address=$(bitcoin-cli -rpcwallet="nftcharm_wallet" getrawchangeaddress)
 echo "change_address: $change_address"
 
 # Step 19: Export RUST_LOG
+pause_and_show "Setting RUST_LOG environment variable..."
 export RUST_LOG=info
 echo "RUST_LOG set to: $RUST_LOG"
 
 # Step 20: Execute spell prove
-echo "Running spell prove..."
+pause_and_show "Running spell prove to generate proof and transactions..."
 prove_output=$(cat ./spells/mint-nft.yaml | envsubst | charms spell prove --app-bins=${app_bin} --prev-txs=$prev_txs --funding-utxo=$funding_utxo --funding-utxo-value=$funding_utxo_value --change-address=$change_address)
 echo "$prove_output"
 
 # Step 21: Extract transaction hexes from prove output
-echo "Extracting transaction hexes..."
-tx_array=$(echo "$prove_output" | jq -r '[.[] | select(.bitcoin) | .bitcoin]')
-echo "Transaction array: $tx_array"
+pause_and_show "Extracting transaction hexes from prove output..."
+tx_hex_1=$(echo "$prove_output" | jq -r '.[0].bitcoin')
+tx_hex_2=$(echo "$prove_output" | jq -r '.[1].bitcoin')
+echo "First transaction hex (first 64 chars): ${tx_hex_1:0:64}..."
+echo "Second transaction hex (first 64 chars): ${tx_hex_2:0:64}..."
 
-# Step 22: Submit transaction package to Bitcoin network
-echo "Submitting transaction package to Bitcoin network..."
-bitcoin-cli -rpcwallet="nftcharm_wallet" submitpackage "$tx_array"
+# Step 22: Sign transactions with wallet
+pause_and_show "Signing transactions with wallet to add witness data..."
+signed_tx_1=$(bitcoin-cli -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_1" | jq -r '.hex')
+signed_tx_2=$(bitcoin-cli -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2" | jq -r '.hex')
+echo "Transactions signed successfully"
+
+# Step 23: Create transaction array for package submission
+pause_and_show "Creating transaction package array..."
+tx_array=$(jq -n --arg tx1 "$signed_tx_1" --arg tx2 "$signed_tx_2" '[$tx1, $tx2]')
+echo "Transaction package prepared"
+
+# Step 24: Submit transaction package to Bitcoin network
+pause_and_show "Submitting transaction package to Bitcoin network..."
+submit_result=$(bitcoin-cli -rpcwallet="nftcharm_wallet" submitpackage "$tx_array")
+echo "$submit_result"
 echo "Transaction package submitted successfully"
+
+# Step 25: Extract and display transaction IDs
+pause_and_show "Extracting transaction IDs for mempool query..."
+txid_1=$(bitcoin-cli -rpcwallet="nftcharm_wallet" decoderawtransaction "$signed_tx_1" | jq -r '.txid')
+txid_2=$(bitcoin-cli -rpcwallet="nftcharm_wallet" decoderawtransaction "$signed_tx_2" | jq -r '.txid')
+
+echo ""
+echo "=========================================="
+echo "TRANSACTION IDs (Query on Testnet4 Mempool)"
+echo "=========================================="
+echo "Transaction 1 ID: $txid_1"
+echo "Mempool URL: https://mempool.space/testnet4/tx/$txid_1"
+echo ""
+echo "Transaction 2 ID: $txid_2"
+echo "Mempool URL: https://mempool.space/testnet4/tx/$txid_2"
+echo "=========================================="

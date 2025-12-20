@@ -21,6 +21,8 @@
 ./workflow.sh
 ```
 
+The script will pause for 2 seconds between each step and display clear progress messages showing what action is being performed.
+
 **Workflow steps**
 1. Build the app and generate verification key
 2. Setup Bitcoin environment (bitcoind + wallet)
@@ -30,10 +32,15 @@
 ```bash
 charms spell prove --funding-utxo <FUNDING_UTXO> --funding-utxo-value <FUNDING_UTXO_VALUE> --change-address <CHANGE_ADDRESS>
 ```
-6. Submit the transaction package to Bitcoin network:
+6. Sign the transactions with wallet:
 ```bash
-bitcoin-cli submitpackage '["<TX_HEX_1>", "<TX_HEX_2>"]'
+bitcoin-cli signrawtransactionwithwallet "<TX_HEX>"
 ```
+7. Submit the signed transaction package to Bitcoin network:
+```bash
+bitcoin-cli submitpackage '["<SIGNED_TX_HEX_1>", "<SIGNED_TX_HEX_2>"]'
+```
+8. Extract transaction IDs and display mempool URLs for verification on testnet4
 
 **Key log entries explained**
 - **CARGO_TARGET_DIR set/unset:** Controls where cargo builds; workflow temporarily sets it for the build.
@@ -50,11 +57,24 @@ bitcoin-cli submitpackage '["<TX_HEX_1>", "<TX_HEX_2>"]'
 **What the two hex objects are**
 - They are JSON array items labeled `bitcoin` — each string is a serialized raw transaction hex. One may be a single-input provisional TX and the other the final combined transaction(s). They are safe to inspect locally with `bitcoin-cli -rpcwallet=nftcharm_wallet decoderawtransaction <hex>`.
 
+**Transaction verification on Testnet4**
+- After successful submission, the workflow displays transaction IDs and mempool.space URLs
+- Example output:
+```
+Transaction 1 ID: abc123...
+Mempool URL: https://mempool.space/testnet4/tx/abc123...
+
+Transaction 2 ID: def456...
+Mempool URL: https://mempool.space/testnet4/tx/def456...
+```
+- Use these URLs to track transaction confirmation status on the testnet4 blockchain explorer
+
 **Checklist for a new user**
 - **Confirm bitcoind:** `bitcoin-cli getblockchaininfo` returns status.
 - **Confirm wallet:** `bitcoin-cli listwallets` includes `nftcharm_wallet`.
 - **Inspect UTXOs:** `bitcoin-cli listunspent` to find available UTXOs used by the script.
 - **Decode TXs:** Use `bitcoin-cli decoderawtransaction <hex>` to inspect outputs and scripts.
+- **Track on mempool:** Visit the mempool.space URLs printed at the end to verify transaction propagation.
 
 **Troubleshooting**
 - If `bitcoind` isn't running: start it and ensure RPC credentials match repository config.
