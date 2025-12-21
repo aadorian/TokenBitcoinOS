@@ -125,6 +125,27 @@ view_spell() {
                 done
             fi
 
+            # Show decoded text for all witness items
+            echo -e "${BOLD}│${NC}"
+            echo -e "${BOLD}│ 📝 Decoded Witness Data:${NC}"
+            item_idx=0
+            for witness in $witness_items; do
+                decoded_text=$(echo "$witness" | xxd -r -p 2>/dev/null | strings -n 4 2>/dev/null || echo "")
+                hex_preview="${witness:0:64}"
+
+                if [ -n "$decoded_text" ]; then
+                    echo -e "${BOLD}│${NC}   ${CYAN}Item #${item_idx}:${NC}"
+                    echo -e "${BOLD}│${NC}     Hex: ${hex_preview}..."
+                    echo -e "${BOLD}│${NC}     Text:"
+                    # Display decoded text with indentation, handling special characters
+                    echo "$decoded_text" | head -20 | LC_ALL=C sed 's/^/│       /' 2>/dev/null || echo -e "${BOLD}│${NC}       (binary data)"
+                else
+                    echo -e "${BOLD}│${NC}   ${CYAN}Item #${item_idx}:${NC} ${YELLOW}(signature/binary data)${NC}"
+                    echo -e "${BOLD}│${NC}     Hex: ${hex_preview}..."
+                fi
+                item_idx=$((item_idx + 1))
+            done
+
             echo -e "${BOLD}└─────────────────────────────────────────${NC}"
             echo ""
             input_idx=$((input_idx + 1))
