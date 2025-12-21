@@ -50,6 +50,21 @@ else
     echo "Network: mainnet"
 fi
 
+# Load wallet if not already loaded
+echo ""
+echo "Checking wallet status..."
+if ! $BTC_CLI listwallets | jq -e '.[] | select(. == "nftcharm_wallet")' > /dev/null 2>&1; then
+    echo "Loading nftcharm_wallet..."
+    $BTC_CLI loadwallet "nftcharm_wallet" > /dev/null 2>&1 || {
+        echo "ERROR: Failed to load wallet 'nftcharm_wallet'"
+        echo "Make sure the wallet exists"
+        exit 1
+    }
+    echo "✓ Wallet loaded"
+else
+    echo "✓ Wallet already loaded"
+fi
+
 # List available UTXOs
 echo ""
 echo "Available UTXOs:"
@@ -81,9 +96,16 @@ export app_id=$(echo -n "$original_witness_utxo" | sha256sum | cut -d' ' -f1)
 echo "App ID: $app_id"
 
 # Get addresses - send to same address for testing
+echo "Getting new address..."
 export addr_3=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
+if [ -z "$addr_3" ]; then
+    echo "ERROR: Failed to generate address"
+    echo "Make sure the 'nftcharm_wallet' wallet is loaded"
+    exit 1
+fi
 export addr_4=$addr_3
 echo "Recipient address: $addr_3"
+echo "Change address: $addr_4"
 echo ""
 
 # Get the token UTXO raw transaction
@@ -107,6 +129,14 @@ export prev_txs
 echo ""
 echo "Spell configuration:"
 echo "============================================"
+echo "Variables for spell:"
+echo "  app_id: $app_id"
+echo "  app_vk: $app_vk"
+echo "  in_utxo_1: $in_utxo_1"
+echo "  addr_3: $addr_3"
+echo "  addr_4: $addr_4"
+echo ""
+echo "Expanded spell YAML:"
 cat ./spells/send.yaml | envsubst
 echo "============================================"
 

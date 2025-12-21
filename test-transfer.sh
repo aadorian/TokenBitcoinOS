@@ -50,6 +50,21 @@ else
     echo "Using mainnet"
 fi
 
+# Load wallet if not already loaded
+echo ""
+echo "Checking wallet status..."
+if ! $BTC_CLI listwallets | jq -e '.[] | select(. == "nftcharm_wallet")' > /dev/null 2>&1; then
+    echo "Loading nftcharm_wallet..."
+    $BTC_CLI loadwallet "nftcharm_wallet" > /dev/null 2>&1 || {
+        echo "ERROR: Failed to load wallet 'nftcharm_wallet'"
+        echo "Make sure the wallet exists"
+        exit 1
+    }
+    echo "✓ Wallet loaded"
+else
+    echo "✓ Wallet already loaded"
+fi
+
 # List available UTXOs
 echo ""
 echo "Available UTXOs:"
