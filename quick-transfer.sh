@@ -9,6 +9,31 @@ echo "NFTCharm Quick Test Transfer"
 echo "=========================================="
 echo ""
 
+# Check if Bitcoin Core is running, start if needed
+echo "Checking Bitcoin Core status..."
+if ! bitcoin-cli getblockchaininfo &>/dev/null; then
+    echo "Bitcoin Core not running. Starting bitcoind..."
+    bitcoind -daemon
+    echo "Waiting for Bitcoin Core to start..."
+    sleep 5
+
+    # Wait up to 30 seconds for Bitcoin Core to be ready
+    for i in {1..30}; do
+        if bitcoin-cli getblockchaininfo &>/dev/null; then
+            echo "✓ Bitcoin Core started successfully"
+            break
+        fi
+        sleep 1
+    done
+
+    if ! bitcoin-cli getblockchaininfo &>/dev/null; then
+        echo "ERROR: Bitcoin Core failed to start"
+        exit 1
+    fi
+else
+    echo "✓ Bitcoin Core is running"
+fi
+
 # Detect Bitcoin network
 NETWORK=$(bitcoin-cli getblockchaininfo 2>/dev/null | jq -r '.chain' || echo "main")
 if [ "$NETWORK" = "testnet4" ]; then
@@ -25,6 +50,12 @@ else
     echo "Network: mainnet"
 fi
 
+# List available UTXOs
+echo ""
+echo "Available UTXOs:"
+$BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | "\(.txid):\(.vout) - \(.amount) BTC"'
+echo ""
+
 # Navigate to my-token directory
 cd my-token
 
@@ -34,8 +65,14 @@ echo "Verification key: $app_vk"
 
 # Set the token UTXO from the minting transaction
 # This is the UTXO containing the minted tokens
+# WARNING: This should be a MINTED token UTXO, not the NFT UTXO with remaining supply!
 export in_utxo_1="d8786af1e7e597d77c073905fd6fd7053e4d12894eefa19c5deb45842fc2a8a2:0"
 echo "Token UTXO: $in_utxo_1"
+echo ""
+echo "⚠️  IMPORTANT: Make sure this is a MINTED token UTXO, not the NFT with remaining supply!"
+echo "    You can check by running: ./spell.sh $(echo $in_utxo_1 | cut -d':' -f1)"
+echo "    It should show 'MY-TOKEN' tokens, NOT 'Has remaining supply'"
+echo ""
 
 # Calculate app_id from the ORIGINAL witness UTXO
 # This is the UTXO that created the NFT identity

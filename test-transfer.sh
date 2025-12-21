@@ -9,6 +9,31 @@ echo "NFTCharm Test Transfer Script"
 echo "=========================================="
 echo ""
 
+# Check if Bitcoin Core is running, start if needed
+echo "Checking Bitcoin Core status..."
+if ! bitcoin-cli getblockchaininfo &>/dev/null; then
+    echo "Bitcoin Core not running. Starting bitcoind..."
+    bitcoind -daemon
+    echo "Waiting for Bitcoin Core to start..."
+    sleep 5
+
+    # Wait up to 30 seconds for Bitcoin Core to be ready
+    for i in {1..30}; do
+        if bitcoin-cli getblockchaininfo &>/dev/null; then
+            echo "✓ Bitcoin Core started successfully"
+            break
+        fi
+        sleep 1
+    done
+
+    if ! bitcoin-cli getblockchaininfo &>/dev/null; then
+        echo "ERROR: Bitcoin Core failed to start"
+        exit 1
+    fi
+else
+    echo "✓ Bitcoin Core is running"
+fi
+
 # Detect Bitcoin network
 NETWORK=$(bitcoin-cli getblockchaininfo 2>/dev/null | jq -r '.chain' || echo "main")
 if [ "$NETWORK" = "testnet4" ]; then
@@ -24,6 +49,12 @@ else
     BTC_CLI="bitcoin-cli"
     echo "Using mainnet"
 fi
+
+# List available UTXOs
+echo ""
+echo "Available UTXOs:"
+$BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | "\(.txid):\(.vout) - \(.amount) BTC"'
+echo ""
 
 # Navigate to my-token directory
 cd my-token
