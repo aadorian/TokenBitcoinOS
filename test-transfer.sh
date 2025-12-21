@@ -79,17 +79,28 @@ echo "============================================"
 
 echo ""
 echo "Step 7: Validate spell..."
-app_bin=$(charms app bin)
-cat ./spells/send.yaml | envsubst | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin
+app_bin="target/wasm32-wasip1/release/my-token.wasm"
+if ! cat ./spells/send.yaml | envsubst | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin; then
+    echo "ERROR: Spell validation failed"
+    exit 1
+fi
+echo "✓ Spell validation passed"
 
 echo ""
 echo "Step 8: Get funding UTXO for transaction fees..."
 # Get a UTXO for paying fees (should be different from the token UTXO)
-FUNDING_INFO=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | select(.amount > 0.00001) | "\(.txid):\(.vout) \(.amount)"' | head -n1)
+FUNDING_INFO=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | select(.amount > 0.0001 and (.txid + ":" + (.vout|tostring)) != "'$in_utxo_1'") | "\(.txid):\(.vout) \(.amount)"' | head -n1)
+
+if [ -z "$FUNDING_INFO" ]; then
+    echo "ERROR: No suitable funding UTXO found"
+    echo "Need a UTXO with > 0.0001 BTC that isn't the token UTXO"
+    exit 1
+fi
+
 export funding_utxo=$(echo $FUNDING_INFO | cut -d' ' -f1)
 funding_amount=$(echo $FUNDING_INFO | cut -d' ' -f2)
 export funding_utxo_value=$(echo "$funding_amount * 100000000" | bc | cut -d'.' -f1)
-echo "funding_utxo: $funding_utxo"
+echo "funding_utxo: $funding_utxo ($funding_amount BTC)"
 echo "funding_utxo_value: $funding_utxo_value satoshis"
 
 echo ""
@@ -102,7 +113,7 @@ echo "Step 10: Generate proof and transactions..."
 export RUST_LOG=info
 prove_output=$(cat ./spells/send.yaml | envsubst | \
     charms spell prove \
-        --app-bins=$app_bin \
+        --app-bins="target/wasm32-wasip1/release/my-token.wasm" \
         --prev-txs=$prev_txs \
         --funding-utxo=$funding_utxo \
         --funding-utxo-value=$funding_utxo_value \

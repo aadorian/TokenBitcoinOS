@@ -75,7 +75,7 @@ echo "============================================"
 
 echo ""
 echo "Validating spell..."
-app_bin=$(charms app bin)
+app_bin="target/wasm32-wasip1/release/my-token.wasm"
 if ! cat ./spells/send.yaml | envsubst | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin; then
     echo "ERROR: Spell validation failed"
     exit 1
@@ -106,7 +106,7 @@ export RUST_LOG=info
 
 prove_output=$(cat ./spells/send.yaml | envsubst | \
     charms spell prove \
-        --app-bins=$app_bin \
+        --app-bins="target/wasm32-wasip1/release/my-token.wasm" \
         --prev-txs=$prev_txs \
         --funding-utxo=$funding_utxo \
         --funding-utxo-value=$funding_utxo_value \
