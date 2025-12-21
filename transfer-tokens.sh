@@ -84,38 +84,123 @@ export app_vk=$(charms app vk)
 export original_witness_utxo="f62d75e7c52c1929c63033b797947d8af0f4e720cc5d67be5198e24491818941:0"
 export app_id=$(echo -n "$original_witness_utxo" | sha256sum | cut -d' ' -f1)
 
-echo "App Details:"
-echo "  App ID: $app_id"
-echo "  App VK: $app_vk"
+echo "==========================================="
+echo "Token Information"
+echo "==========================================="
+echo "App ID: $app_id"
+echo "App VK: $app_vk"
 echo ""
+
+# Scan UTXOs for token balances
+echo "Scanning for token balances..."
+TOTAL_TOKENS=0
+TOKEN_UTXOS=()
+
+# Get all UTXOs from wallet
+cd ..
+UTXOS=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent)
+cd my-token
+
+# Check each UTXO for tokens
+while IFS= read -r utxo_entry; do
+    utxo_id=$(echo "$utxo_entry" | jq -r '.txid + ":" + (.vout|tostring)')
+    utxo_amount=$(echo "$utxo_entry" | jq -r '.amount')
+
+    # Try to fetch and decode the transaction to check for tokens
+    txid=$(echo "$utxo_id" | cut -d':' -f1)
+    vout=$(echo "$utxo_id" | cut -d':' -f2)
+
+    # Get raw transaction
+    if tx_raw=$($BTC_CLI getrawtransaction "$txid" true 2>/dev/null); then
+        # Check if this output has witness data that might contain token information
+        witness=$($BTC_CLI getrawtransaction "$txid" true 2>/dev/null | jq -r ".vin[].txinwitness // empty" 2>/dev/null)
+
+        # For now, we'll mark UTXOs with very small amounts as potential token UTXOs
+        # A proper implementation would decode the witness data
+        if (( $(echo "$utxo_amount < 0.0001" | bc -l) )); then
+            # This is likely a token UTXO (has dust amount)
+            # You would need to properly decode witness data to get exact token amount
+            TOKEN_UTXOS+=("$utxo_id ($utxo_amount BTC)")
+        fi
+    fi
+done < <(echo "$UTXOS" | jq -c '.[]')
+
+if [ ${#TOKEN_UTXOS[@]} -gt 0 ]; then
+    echo "Token UTXOs found (${#TOKEN_UTXOS[@]}):"
+    for token_utxo in "${TOKEN_UTXOS[@]}"; do
+        echo "  $token_utxo"
+    done
+else
+    echo "No token UTXOs found in wallet"
+fi
+
+echo ""
+echo "Note: To see exact token amounts, you need to decode the witness data"
+echo "      or use the spell viewer on each UTXO"
+echo ""
+echo "==========================================="
+echo ""
+
+# Default values
+DEFAULT_WALLET_ADDR="tb1p0hewpmw7guc6675fezgdyasc43ma73f35j9wgpkup5chuut6547q6tathe"
+# This should be a token UTXO (type t/), not an NFT (type n/)
+# If you only have an NFT, you need to mint tokens first
+DEFAULT_TOKEN_UTXO=""
+DEFAULT_TRANSFER_AMOUNT="100"
 
 # Prompt for source UTXOs
-echo "Enter source UTXO(s) with tokens (format: txid:vout,amount):"
-echo "Example: abc123...:0,1000 or multiple separated by semicolon"
-read -p "Source UTXOs: " SOURCE_UTXOS_INPUT
+echo "Enter source UTXO(s) with tokens (separated by semicolon for multiple):"
+echo "Default: $DEFAULT_TOKEN_UTXO"
+read -p "Source UTXOs [Enter for default]: " SOURCE_UTXOS_INPUT
+SOURCE_UTXOS_INPUT=${SOURCE_UTXOS_INPUT:-$DEFAULT_TOKEN_UTXO}
 
-# Prompt for destination addresses
 echo ""
-echo "Enter destination address(es) and amounts (format: address,amount):"
-echo "Example: tb1p...:500 or multiple separated by semicolon"
-read -p "Destinations: " DEST_ADDRS_INPUT
+echo "Enter token amount(s) for each source UTXO (same order, separated by semicolon):"
+echo "Default: $DEFAULT_TRANSFER_AMOUNT tokens"
+read -p "Source amounts [Enter for default]: " SOURCE_AMOUNTS_INPUT
+SOURCE_AMOUNTS_INPUT=${SOURCE_AMOUNTS_INPUT:-$DEFAULT_TRANSFER_AMOUNT}
+
+# Prompt for destination addresses and amounts separately
+echo ""
+echo "Enter destination address(es) (separated by semicolon for multiple):"
+echo "Default: $DEFAULT_WALLET_ADDR (same wallet)"
+read -p "Destination addresses [Enter for default]: " DEST_ADDRS_INPUT
+DEST_ADDRS_INPUT=${DEST_ADDRS_INPUT:-$DEFAULT_WALLET_ADDR}
+
+echo ""
+echo "Enter corresponding amount(s) (same order as addresses, separated by semicolon):"
+echo "Default: $DEFAULT_TRANSFER_AMOUNT tokens"
+read -p "Amounts [Enter for default]: " DEST_AMOUNTS_INPUT
+DEST_AMOUNTS_INPUT=${DEST_AMOUNTS_INPUT:-$DEFAULT_TRANSFER_AMOUNT}
 
 # Parse source UTXOs
-IFS=';' read -ra SOURCE_ARRAY <<< "$SOURCE_UTXOS_INPUT"
+IFS=';' read -ra SOURCE_UTXOS_ARRAY <<< "$SOURCE_UTXOS_INPUT"
+IFS=';' read -ra SOURCE_AMOUNTS_ARRAY <<< "$SOURCE_AMOUNTS_INPUT"
+
+# Check if arrays have same length
+if [ ${#SOURCE_UTXOS_ARRAY[@]} -ne ${#SOURCE_AMOUNTS_ARRAY[@]} ]; then
+    echo ""
+    echo "ERROR: Number of source UTXOs (${#SOURCE_UTXOS_ARRAY[@]}) doesn't match number of amounts (${#SOURCE_AMOUNTS_ARRAY[@]})"
+    exit 1
+fi
+
 SOURCE_UTXOS=""
 PREV_TXS=""
 TOTAL_INPUT=0
 
 echo ""
 echo "Processing source UTXOs..."
-for source in "${SOURCE_ARRAY[@]}"; do
-    IFS=',' read -r utxo amount <<< "$source"
+for i in "${!SOURCE_UTXOS_ARRAY[@]}"; do
+    # Trim whitespace
+    utxo=$(echo "${SOURCE_UTXOS_ARRAY[$i]}" | xargs)
+    amount=$(echo "${SOURCE_AMOUNTS_ARRAY[$i]}" | xargs)
+
     SOURCE_UTXOS+="    {\"utxo_id\": \"$utxo\", \"charms\": {\"\$00\": $amount}},"
     TOTAL_INPUT=$((TOTAL_INPUT + amount))
 
     # Fetch transaction
     txid=$(echo $utxo | cut -d':' -f1)
-    echo "  Fetching $txid..."
+    echo "  Fetching $txid ($amount tokens)..."
     if tx_hex=$($BTC_CLI -rpcwallet="nftcharm_wallet" gettransaction "$txid" 2>/dev/null | jq -r '.hex'); then
         if [ -n "$tx_hex" ] && [ "$tx_hex" != "null" ]; then
             PREV_TXS+="$tx_hex,"
@@ -128,14 +213,26 @@ SOURCE_UTXOS=${SOURCE_UTXOS%,}
 PREV_TXS=${PREV_TXS%,}
 
 # Parse destinations
-IFS=';' read -ra DEST_ARRAY <<< "$DEST_ADDRS_INPUT"
+IFS=';' read -ra DEST_ADDRS_ARRAY <<< "$DEST_ADDRS_INPUT"
+IFS=';' read -ra DEST_AMOUNTS_ARRAY <<< "$DEST_AMOUNTS_INPUT"
+
+# Check if arrays have same length
+if [ ${#DEST_ADDRS_ARRAY[@]} -ne ${#DEST_AMOUNTS_ARRAY[@]} ]; then
+    echo ""
+    echo "ERROR: Number of addresses (${#DEST_ADDRS_ARRAY[@]}) doesn't match number of amounts (${#DEST_AMOUNTS_ARRAY[@]})"
+    exit 1
+fi
+
 DEST_OUTPUTS=""
 TOTAL_OUTPUT=0
 
 echo ""
 echo "Processing destinations..."
-for dest in "${DEST_ARRAY[@]}"; do
-    IFS=',' read -r address amount <<< "$dest"
+for i in "${!DEST_ADDRS_ARRAY[@]}"; do
+    # Trim whitespace
+    address=$(echo "${DEST_ADDRS_ARRAY[$i]}" | xargs)
+    amount=$(echo "${DEST_AMOUNTS_ARRAY[$i]}" | xargs)
+
     DEST_OUTPUTS+="    {\"address\": \"$address\", \"charms\": {\"\$00\": $amount}},"
     TOTAL_OUTPUT=$((TOTAL_OUTPUT + amount))
     echo "  $address: $amount tokens"
