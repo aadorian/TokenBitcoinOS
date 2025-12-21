@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Test Transfer Script
-# This script sends tokens from the default address back to itself to verify the token is working
+# Mint Tokens Script
+# This script mints tokens from the NFT with remaining supply
 
 echo "=========================================="
-echo "NFTCharm Test Transfer Script"
+echo "NFTCharm Token Minting Script"
 echo "=========================================="
 echo ""
 
@@ -38,16 +38,16 @@ fi
 NETWORK=$(bitcoin-cli getblockchaininfo 2>/dev/null | jq -r '.chain' || echo "main")
 if [ "$NETWORK" = "testnet4" ]; then
     BTC_CLI="bitcoin-cli -testnet4"
-    echo "Detected testnet4 network"
+    echo "Network: testnet4"
 elif [ "$NETWORK" = "test" ]; then
     BTC_CLI="bitcoin-cli -testnet"
-    echo "Detected testnet network"
+    echo "Network: testnet"
 elif [ "$NETWORK" = "regtest" ]; then
     BTC_CLI="bitcoin-cli -regtest"
-    echo "Detected regtest network"
+    echo "Network: regtest"
 else
     BTC_CLI="bitcoin-cli"
-    echo "Using mainnet"
+    echo "Network: mainnet"
 fi
 
 # Load wallet if not already loaded
@@ -83,90 +83,114 @@ echo ""
 # Navigate to my-token directory
 cd my-token
 
-echo ""
-echo "Step 1: Get verification key..."
+# Get verification key
 export app_vk=$(charms app vk)
-echo "app_vk: $app_vk"
+echo "Verification key: $app_vk"
 
-echo ""
-echo "Step 2: Find the UTXO with tokens..."
-# Look for the token minted transaction - should be the second tx from the minting process
-# Based on your output, this should be transaction: 99c87e74dfb50db7fac0ed41ed640dd62ec4d97e77aca70a60ed57edcd89485b
-# The token output is usually at vout 0
+# Set the NFT UTXO (the one with remaining supply)
+export in_utxo_1="d8786af1e7e597d77c073905fd6fd7053e4d12894eefa19c5deb45842fc2a8a2:0"
+echo "NFT UTXO (with remaining supply): $in_utxo_1"
 
-# List all UTXOs and find the one with tokens
-echo "Available UTXOs:"
-$BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq '.[] | {txid: .txid, vout: .vout, amount: .amount, address: .address}'
-
-echo ""
-read -p "Enter the UTXO with tokens (format: txid:vout): " TOKEN_UTXO
-export in_utxo_1="$TOKEN_UTXO"
-
-echo ""
-echo "Step 3: Calculate app_id from the original NFT UTXO..."
-# The app_id should be from the ORIGINAL witness UTXO that created the NFT
-# Based on your output: f62d75e7c52c1929c63033b797947d8af0f4e720cc5d67be5198e24491818941:0
+# Calculate app_id from the ORIGINAL witness UTXO
 export original_witness_utxo="f62d75e7c52c1929c63033b797947d8af0f4e720cc5d67be5198e24491818941:0"
 export app_id=$(echo -n "$original_witness_utxo" | sha256sum | cut -d' ' -f1)
-echo "app_id: $app_id"
+echo "App ID: $app_id"
 
+# Get addresses for minting
 echo ""
-echo "Step 4: Get addresses for transfer..."
-# Get the current default address
-export addr_3=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
-echo "Recipient address (addr_3): $addr_3"
-
-# Use the same address for change
-export addr_4=$addr_3
-echo "Change address (addr_4): $addr_4"
-
-echo ""
-echo "Step 5: Get the token UTXO raw transaction..."
-TOKEN_TXID=$(echo $in_utxo_1 | cut -d':' -f1)
-export prev_txs=$($BTC_CLI getrawtransaction "$TOKEN_TXID")
-echo "Token transaction fetched (txid: $TOKEN_TXID)"
-
-echo ""
-echo "Step 6: Prepare send.yaml spell..."
-echo "============================================"
-cat ./spells/send.yaml | envsubst
-echo "============================================"
-
-echo ""
-echo "Step 7: Validate spell..."
-app_bin="target/wasm32-wasip1/release/my-token.wasm"
-if ! cat ./spells/send.yaml | envsubst | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin; then
-    echo "ERROR: Spell validation failed"
+echo "Getting addresses..."
+export addr_1=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
+if [ -z "$addr_1" ]; then
+    echo "ERROR: Failed to generate address for tokens"
     exit 1
 fi
-echo "✓ Spell validation passed"
+echo "Token recipient address (addr_1): $addr_1"
+
+export addr_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
+if [ -z "$addr_2" ]; then
+    echo "ERROR: Failed to generate address for NFT change"
+    exit 1
+fi
+echo "NFT change address (addr_2): $addr_2"
+
+# Get the NFT UTXO raw transaction
+echo ""
+NFT_TXID=$(echo $in_utxo_1 | cut -d':' -f1)
+echo "Fetching transaction $NFT_TXID..."
+
+# Try wallet first (for wallet transactions), then blockchain, then API
+if prev_txs=$($BTC_CLI -rpcwallet="nftcharm_wallet" gettransaction "$NFT_TXID" 2>/dev/null | jq -r '.hex'); then
+    if [ -n "$prev_txs" ] && [ "$prev_txs" != "null" ]; then
+        echo "✓ Retrieved from wallet"
+    else
+        prev_txs=""
+    fi
+fi
+
+if [ -z "$prev_txs" ]; then
+    if prev_txs=$($BTC_CLI getrawtransaction "$NFT_TXID" 2>/dev/null); then
+        echo "✓ Retrieved from blockchain"
+    fi
+fi
+
+if [ -z "$prev_txs" ]; then
+    echo "Fetching from mempool.space API..."
+    prev_txs=$(curl -s "https://mempool.space/testnet4/api/tx/$NFT_TXID/hex")
+    if [ -z "$prev_txs" ] || [ "$prev_txs" = "Transaction not found" ]; then
+        echo "ERROR: Could not fetch transaction"
+        echo "Try enabling -txindex in bitcoin.conf and restart bitcoind"
+        exit 1
+    fi
+    echo "✓ Retrieved from API"
+fi
+export prev_txs
 
 echo ""
-echo "Step 8: Get funding UTXO for transaction fees..."
-# Get a UTXO for paying fees (should be different from the token UTXO)
+echo "Mint spell configuration:"
+echo "============================================"
+echo "Variables:"
+echo "  app_id: $app_id"
+echo "  app_vk: $app_vk"
+echo "  in_utxo_1 (NFT): $in_utxo_1"
+echo "  addr_1 (tokens): $addr_1"
+echo "  addr_2 (NFT change): $addr_2"
+echo ""
+echo "Expanded mint-token.yaml:"
+cat ./spells/mint-token.yaml | envsubst
+echo "============================================"
+
+echo ""
+echo "Validating mint spell..."
+app_bin="target/wasm32-wasip1/release/my-token.wasm"
+if ! cat ./spells/mint-token.yaml | envsubst | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin; then
+    echo "ERROR: Mint spell validation failed"
+    exit 1
+fi
+echo "✓ Mint spell validation passed"
+
+echo ""
+echo "Getting funding UTXO..."
 FUNDING_INFO=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | select(.amount > 0.0001 and (.txid + ":" + (.vout|tostring)) != "'$in_utxo_1'") | "\(.txid):\(.vout) \(.amount)"' | head -n1)
 
 if [ -z "$FUNDING_INFO" ]; then
     echo "ERROR: No suitable funding UTXO found"
-    echo "Need a UTXO with > 0.0001 BTC that isn't the token UTXO"
+    echo "Need a UTXO with > 0.0001 BTC that isn't the NFT UTXO"
     exit 1
 fi
 
 export funding_utxo=$(echo $FUNDING_INFO | cut -d' ' -f1)
 funding_amount=$(echo $FUNDING_INFO | cut -d' ' -f2)
 export funding_utxo_value=$(echo "$funding_amount * 100000000" | bc | cut -d'.' -f1)
-echo "funding_utxo: $funding_utxo ($funding_amount BTC)"
-echo "funding_utxo_value: $funding_utxo_value satoshis"
+echo "Funding UTXO: $funding_utxo ($funding_amount BTC)"
 
-echo ""
-echo "Step 9: Get change address..."
 export change_address=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
-echo "change_address: $change_address"
+echo "Change address: $change_address"
 
 echo ""
-echo "Step 10: Generate proof and transactions..."
+echo "Generating proof and transactions..."
 export RUST_LOG=info
-prove_output=$(cat ./spells/send.yaml | envsubst | \
+
+prove_output=$(cat ./spells/mint-token.yaml | envsubst | \
     charms spell prove \
         --app-bins="target/wasm32-wasip1/release/my-token.wasm" \
         --prev-txs=$prev_txs \
@@ -175,14 +199,12 @@ prove_output=$(cat ./spells/send.yaml | envsubst | \
         --change-address=$change_address)
 
 echo ""
-echo "Step 11: Extract transaction hexes..."
+echo "Extracting transactions..."
 tx_hex_1=$(echo "$prove_output" | jq -r '.[0].bitcoin')
 tx_hex_2=$(echo "$prove_output" | jq -r '.[1].bitcoin')
-echo "Transaction 1 hex (first 64 chars): ${tx_hex_1:0:64}..."
-echo "Transaction 2 hex (first 64 chars): ${tx_hex_2:0:64}..."
 
 echo ""
-echo "Step 12: Sign transaction 1..."
+echo "Signing transaction 1 (commit)..."
 sign_result_1=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_1")
 signed_tx_1=$(echo "$sign_result_1" | jq -r '.hex')
 complete_1=$(echo "$sign_result_1" | jq -r '.complete')
@@ -191,41 +213,45 @@ if [ "$complete_1" != "true" ]; then
     echo "ERROR: Transaction 1 not fully signed!"
     exit 1
 fi
-echo "Transaction 1 signed successfully"
+echo "✓ Signed"
 
 echo ""
-echo "Step 13: Test transaction 1 mempool acceptance..."
+echo "Testing transaction 1..."
 test_result_1=$($BTC_CLI testmempoolaccept "[\"$signed_tx_1\"]")
 allowed_1=$(echo "$test_result_1" | jq -r '.[0].allowed')
 
 if [ "$allowed_1" != "true" ]; then
     echo "ERROR: Transaction 1 rejected by mempool!"
-    echo "Reject reason: $(echo "$test_result_1" | jq -r '.[0]."reject-reason"')"
+    echo "Reason: $(echo "$test_result_1" | jq -r '.[0]."reject-reason"')"
     exit 1
 fi
-echo "Transaction 1 passed mempool test"
+echo "✓ Mempool test passed"
 
 echo ""
-echo "Step 14: Broadcast transaction 1..."
+echo "Broadcasting transaction 1..."
 if txid_1=$($BTC_CLI sendrawtransaction "$signed_tx_1" 2>&1); then
-    echo "Transaction 1 submitted successfully!"
-    echo "TXID: $txid_1"
+    echo "✓ Transaction 1 broadcast: $txid_1"
 else
-    echo "ERROR: Failed to broadcast transaction 1"
-    echo "$txid_1"
+    echo "ERROR: Broadcast failed: $txid_1"
     exit 1
 fi
 
-echo ""
-echo "Step 15: Extract transaction 1 output details..."
-tx1_raw=$($BTC_CLI getrawtransaction "$txid_1" true)
-tx1_scriptpubkey=$(echo "$tx1_raw" | jq -r '.vout[0].scriptPubKey.hex')
-tx1_amount=$(echo "$tx1_raw" | jq -r '.vout[0].value')
-echo "TX1 output 0 scriptPubKey: $tx1_scriptpubkey"
-echo "TX1 output 0 amount: $tx1_amount BTC"
+sleep 2
 
 echo ""
-echo "Step 16: Sign transaction 2..."
+echo "Fetching transaction 1 details..."
+if tx1_raw=$($BTC_CLI getrawtransaction "$txid_1" true 2>/dev/null); then
+    tx1_scriptpubkey=$(echo "$tx1_raw" | jq -r '.vout[0].scriptPubKey.hex')
+    tx1_amount=$(echo "$tx1_raw" | jq -r '.vout[0].value')
+else
+    echo "Using decoded transaction..."
+    tx1_decoded=$($BTC_CLI decoderawtransaction "$signed_tx_1")
+    tx1_scriptpubkey=$(echo "$tx1_decoded" | jq -r '.vout[0].scriptPubKey.hex')
+    tx1_amount=$(echo "$tx1_decoded" | jq -r '.vout[0].value')
+fi
+
+echo ""
+echo "Signing transaction 2 (spell)..."
 sign_result_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2" \
     "[{\"txid\":\"$txid_1\",\"vout\":0,\"scriptPubKey\":\"$tx1_scriptpubkey\",\"amount\":$tx1_amount}]")
 signed_tx_2=$(echo "$sign_result_2" | jq -r '.hex')
@@ -235,40 +261,44 @@ if [ "$complete_2" != "true" ]; then
     echo "ERROR: Transaction 2 not fully signed!"
     exit 1
 fi
-echo "Transaction 2 signed successfully"
+echo "✓ Signed"
 
 echo ""
-echo "Step 17: Test transaction 2 mempool acceptance..."
+echo "Testing transaction 2..."
 test_result_2=$($BTC_CLI testmempoolaccept "[\"$signed_tx_2\"]")
 allowed_2=$(echo "$test_result_2" | jq -r '.[0].allowed')
 
 if [ "$allowed_2" != "true" ]; then
     echo "ERROR: Transaction 2 rejected by mempool!"
-    echo "Reject reason: $(echo "$test_result_2" | jq -r '.[0]."reject-reason"')"
+    echo "Reason: $(echo "$test_result_2" | jq -r '.[0]."reject-reason"')"
     exit 1
 fi
-echo "Transaction 2 passed mempool test"
+echo "✓ Mempool test passed"
 
 echo ""
-echo "Step 18: Broadcast transaction 2..."
+echo "Broadcasting transaction 2..."
 if txid_2=$($BTC_CLI sendrawtransaction "$signed_tx_2" 2>&1); then
-    echo "Transaction 2 submitted successfully!"
-    echo "TXID: $txid_2"
+    echo "✓ Transaction 2 broadcast: $txid_2"
 else
-    echo "ERROR: Failed to broadcast transaction 2"
-    echo "$txid_2"
+    echo "ERROR: Broadcast failed: $txid_2"
     exit 1
 fi
 
 echo ""
 echo "=========================================="
-echo "Test Transfer Complete!"
+echo "✓ Token Minting Complete!"
 echo "=========================================="
-echo "Commit Transaction: $txid_1"
-echo "Spell Transaction: $txid_2"
+echo "Commit TX: $txid_1"
+echo "Spell TX:  $txid_2"
 echo ""
-echo "The tokens have been successfully transferred back to the same address,"
-echo "proving that the token system is working correctly!"
+echo "Minted 69,420 tokens to: $addr_1"
+echo "NFT (30,580 remaining) sent to: $addr_2"
 echo ""
-echo "You can view the spell transaction with:"
-echo "./spell.sh $txid_2"
+echo "View the spell transaction:"
+echo "  ./spell.sh $txid_2"
+echo ""
+echo "To find the minted token UTXO, run:"
+echo "  bitcoin-cli -testnet4 -rpcwallet=nftcharm_wallet listunspent"
+echo ""
+echo "Then use that token UTXO in the transfer scripts!"
+echo "=========================================="

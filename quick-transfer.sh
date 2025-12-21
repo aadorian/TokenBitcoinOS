@@ -65,6 +65,15 @@ else
     echo "✓ Wallet already loaded"
 fi
 
+# Get wallet info and display address
+echo ""
+echo "Wallet Information:"
+WALLET_ADDRESS=$($BTC_CLI -rpcwallet="nftcharm_wallet" getaddressesbylabel "" | jq -r 'keys[0]' 2>/dev/null)
+if [ -z "$WALLET_ADDRESS" ] || [ "$WALLET_ADDRESS" = "null" ]; then
+    WALLET_ADDRESS=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
+fi
+echo "Default wallet address: $WALLET_ADDRESS"
+
 # List available UTXOs
 echo ""
 echo "Available UTXOs:"
