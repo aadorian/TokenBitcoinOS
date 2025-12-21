@@ -430,6 +430,24 @@ bitcoin-cli -testnet4 stop
 bitcoind -testnet4 -daemon
 ```
 
+### Import Secret Key
+```bash
+bitcoin-cli -testnet4 -rpcwallet=nftcharm_wallet importprivkey "YOUR_PRIVATE_KEY_HERE" "my_label" true
+```
+### Dump Private Secret Key
+```bash
+bitcoin-cli dumpprivkey "your-bitcoin-address"
+```
+
+### Dump Private Secret Key
+```bash
+bitcoin-cli -rpcwallet="nftcharm_wallet" listaddressgroupings
+```
+### All Balance
+```bash
+bitcoin-cli getbalance "*"
+```
+
 ### Transaction Not Confirming
 ```bash
 # Check mempool
