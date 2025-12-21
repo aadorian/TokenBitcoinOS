@@ -294,21 +294,58 @@ fi
 
 echo "[25] ✓ Transaction 2 signed successfully"
 
-# Step 25.5: Test transaction 2 before broadcasting
+# Step 25.5: Wait for transaction 1 to be confirmed before testing transaction 2
+pause_and_show "Waiting for transaction 1 to be confirmed..."
+echo "[25.5] Mining a block to confirm transaction 1..."
+
+# Get a wallet address to mine to
+mine_address=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
+
+# Mine one block to confirm transaction 1
+if [ "$NETWORK" = "regtest" ]; then
+    # On regtest, we can mine blocks instantly
+    $BTC_CLI generatetoaddress 1 "$mine_address" > /dev/null
+    echo "[25.5] ✓ Block mined, transaction 1 confirmed"
+else
+    # On testnet/mainnet, we can't mine, so just wait and check
+    echo "[25.5] Waiting for transaction 1 to confirm (this may take several minutes)..."
+    confirmed=false
+    for i in {1..60}; do
+        # Check if transaction 1 has confirmations
+        tx_info=$($BTC_CLI gettransaction "$txid_1" 2>/dev/null || echo "{}")
+        confirmations=$(echo "$tx_info" | jq -r '.confirmations // 0')
+
+        if [ "$confirmations" -gt 0 ]; then
+            echo "[25.5] ✓ Transaction 1 confirmed with $confirmations confirmations"
+            confirmed=true
+            break
+        fi
+
+        echo "[25.5] Still waiting... (attempt $i/60)"
+        sleep 10
+    done
+
+    if [ "$confirmed" = "false" ]; then
+        echo "[25.5] ⚠ Warning: Transaction 1 not yet confirmed after 10 minutes"
+        echo "[25.5] Proceeding anyway - transaction 2 will be accepted as a child transaction"
+    fi
+fi
+
+# Step 25.6: Test transaction 2 with mempool acceptance
 pause_and_show "Testing transaction 2 with mempool acceptance..."
 test_result_2=$($BTC_CLI testmempoolaccept "[\"$signed_tx_2\"]")
-echo "[25.5] Test result:"
+echo "[25.6] Test result:"
 echo "$test_result_2" | jq '.'
 
 allowed_2=$(echo "$test_result_2" | jq -r '.[0].allowed')
 if [ "$allowed_2" != "true" ]; then
     echo ""
-    echo "[25.5] ✗ Transaction 2 will be rejected by mempool!"
+    echo "[25.6] ✗ Transaction 2 will be rejected by mempool!"
     echo "Reject reason: $(echo "$test_result_2" | jq -r '.[0]."reject-reason"')"
     exit 1
 fi
 
-echo "[25.5] ✓ Transaction 2 passed mempool acceptance test"
+echo "[25.6] ✓ Transaction 2 passed mempool acceptance test"
 
 # Step 26: Submit transaction 2 to Bitcoin network
 pause_and_show "Submitting second transaction to Bitcoin network..."
