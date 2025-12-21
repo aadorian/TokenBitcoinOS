@@ -150,6 +150,4 @@ Transaction Input #0: UtxoId(f62d75e7c52c1929c63033b797947d8af0f4e720cc5d67be519
 [24] ✓ First transaction submitted successfully: 8d108f19fc241b867fdfee08871cdfdc466bec8cca3e15c1faa7fda38912355c
 
 ==> Signing second transaction with wallet...
-error code: -22
-error message:
-TX decode failed
+99c87e74dfb50db7fac0ed41ed640dd62ec4d97e77aca70a60ed57edcd89485b
