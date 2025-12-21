@@ -27,61 +27,9 @@ else
     echo "Using mainnet"
 fi
 
-# Function to view spell content from transaction ID
+# Function to view spell content from transaction data
 view_spell() {
-    local txid=$1
-    if [ -z "$txid" ]; then
-        echo "Error: Transaction ID required"
-        echo "Usage: $0 <txid>"
-        exit 1
-    fi
-
-    echo -e "${BOLD}${CYAN}=========================================="
-    echo -e "         SPELL CONTENT VIEWER"
-    echo -e "==========================================${NC}"
-    echo -e "${BOLD}Transaction ID:${NC} ${YELLOW}$txid${NC}"
-    echo ""
-
-    # Get raw transaction hex
-    echo "Fetching transaction from Bitcoin network..."
-    raw_hex=$($BTC_CLI getrawtransaction "$txid" 2>/dev/null || echo "")
-
-    if [ -z "$raw_hex" ]; then
-        echo -e "${YELLOW}Local node failed, trying mempool.space API...${NC}"
-
-        # Determine API URL based on network
-        if [ "$NETWORK" = "testnet4" ]; then
-            api_url="https://mempool.space/testnet4/api/tx/$txid/hex"
-        elif [ "$NETWORK" = "test" ]; then
-            api_url="https://mempool.space/testnet/api/tx/$txid/hex"
-        elif [ "$NETWORK" = "regtest" ]; then
-            echo -e "${RED}Error: Cannot fetch regtest transaction from external API${NC}"
-            echo "Enable txindex on your local node: bitcoind -regtest -txindex -reindex"
-            exit 1
-        else
-            api_url="https://mempool.space/api/tx/$txid/hex"
-        fi
-
-        raw_hex=$(curl -s "$api_url")
-
-        if [ -z "$raw_hex" ] || echo "$raw_hex" | grep -q "Transaction not found"; then
-            echo -e "${RED}Error: Could not fetch transaction $txid${NC}"
-            echo ""
-            echo "Solutions:"
-            echo "  1. Enable txindex on your local node:"
-            echo "     bitcoind -testnet4 -txindex -reindex"
-            echo "  2. Check if the transaction exists on mempool.space"
-            exit 1
-        fi
-
-        echo -e "${GREEN}✓ Successfully fetched from mempool.space${NC}"
-    else
-        echo -e "${GREEN}✓ Fetched from local Bitcoin node${NC}"
-    fi
-
-    # Decode transaction
-    echo "Decoding transaction..."
-    decoded=$($BTC_CLI decoderawtransaction "$raw_hex")
+    local decoded=$1
 
     echo ""
     echo -e "${BOLD}${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
@@ -310,7 +258,7 @@ echo "Decoding transaction..."
 decoded=$($BTC_CLI decoderawtransaction "$raw_hex")
 
 # Show main spell view
-view_spell "$TXID"
+view_spell "$decoded"
 
 # Show additional views if requested
 if [ "$SHOW_DETAILED" = true ]; then
