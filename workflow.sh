@@ -113,11 +113,13 @@ fi
 
 # Step 11: Check wallet balance
 pause_and_show "Checking wallet balance..."
+echo "[11] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" getbalance"
 balance=$($BTC_CLI -rpcwallet="nftcharm_wallet" getbalance)
 echo "[11] Wallet balance: $balance BTC"
 
 # If balance is 0, check unconfirmed balance
 if [ "$(echo "$balance == 0" | bc)" -eq 1 ]; then
+    echo "[11] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" getbalances"
     balances_info=$($BTC_CLI -rpcwallet="nftcharm_wallet" getbalances 2>/dev/null || echo "{}")
     if [ -n "$balances_info" ] && [ "$balances_info" != "{}" ]; then
         unconfirmed_balance=$(echo "$balances_info" | jq -r '.mine.untrusted_pending // 0')
@@ -127,6 +129,7 @@ fi
 
 # Step 12: Check for unspent bitcoin outputs
 pause_and_show "Checking for unspent outputs (UTXOs)..."
+echo "[12] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" listunspent"
 unspent=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent)
 if [ "$(echo "$unspent" | jq 'length')" -gt 0 ]; then
     echo "[12] Found unspent outputs:"
@@ -140,6 +143,7 @@ else
     echo "  • https://faucet.testnet4.dev"
     echo ""
     echo "Your wallet address:"
+    echo "[12] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" getnewaddress"
     $BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress
     exit 1
 fi
@@ -158,6 +162,7 @@ echo "[13] addr_0: $addr_0"
 # Step 14: Get raw transaction for prev_txs
 pause_and_show "Getting raw transaction data..."
 txid=$(echo "$unspent" | jq -r '.[0].txid')
+echo "[14] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" gettransaction \"$txid\""
 prev_txs=$($BTC_CLI -rpcwallet="nftcharm_wallet" gettransaction "$txid" | jq -r '.hex')
 echo "[14] prev_txs (txid): $txid"
 echo "[14] prev_txs (raw): ${prev_txs:0:64}..." # Show first 64 chars
@@ -200,6 +205,7 @@ fi
 
 # Step 19: Get change address
 pause_and_show "Getting change address for transaction outputs..."
+echo "[19] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" getrawchangeaddress"
 change_address=$($BTC_CLI -rpcwallet="nftcharm_wallet" getrawchangeaddress)
 echo "[19] change_address: $change_address"
 
@@ -223,6 +229,7 @@ echo "[22] Second transaction hex (first 64 chars): ${tx_hex_2:0:64}..."
 
 # Step 23: Sign and broadcast transaction 1 first (since TX2 depends on it)
 pause_and_show "Signing first transaction with wallet..."
+echo "[23] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" signrawtransactionwithwallet \"\$tx_hex_1\""
 sign_result_1=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_1")
 signed_tx_1=$(echo "$sign_result_1" | jq -r '.hex')
 complete_1=$(echo "$sign_result_1" | jq -r '.complete')
@@ -240,6 +247,7 @@ echo "[23] ✓ Transaction 1 signed successfully"
 
 # Step 23.5: Test transaction 1 before broadcasting
 pause_and_show "Testing transaction 1 with mempool acceptance..."
+echo "[23.5] Running: $BTC_CLI testmempoolaccept \"[\\\"\$signed_tx_1\\\"]\""
 test_result_1=$($BTC_CLI testmempoolaccept "[\"$signed_tx_1\"]")
 echo "[23.5] Test result:"
 echo "$test_result_1" | jq '.'
@@ -257,6 +265,7 @@ echo "[23.5] ✓ Transaction 1 passed mempool acceptance test"
 # Step 24: Submit transaction 1 to Bitcoin network
 pause_and_show "Submitting first transaction to Bitcoin network..."
 echo "[24] Attempting to broadcast first transaction..."
+echo "[24] Running: $BTC_CLI sendrawtransaction \"\$signed_tx_1\""
 if txid_1=$($BTC_CLI sendrawtransaction "$signed_tx_1" 2>&1); then
     echo "[24] ✓ First transaction submitted successfully: $txid_1"
 else
@@ -272,6 +281,7 @@ fi
 pause_and_show "Signing second transaction with wallet..."
 
 # Decode transaction 1 to get output details
+echo "[25] Running: $BTC_CLI decoderawtransaction \"\$signed_tx_1\""
 decoded_tx_1=$($BTC_CLI decoderawtransaction "$signed_tx_1")
 tx1_scriptpubkey=$(echo "$decoded_tx_1" | jq -r '.vout[0].scriptPubKey.hex')
 tx1_amount=$(echo "$decoded_tx_1" | jq -r '.vout[0].value')
@@ -279,6 +289,7 @@ tx1_amount=$(echo "$decoded_tx_1" | jq -r '.vout[0].value')
 echo "[25] TX1 output 0: scriptPubKey=$tx1_scriptpubkey, amount=$tx1_amount"
 
 # Sign transaction 2 with the previous output information
+echo "[25] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" signrawtransactionwithwallet \"\$tx_hex_2\" \"[{\\\"txid\\\":\\\"\$txid_1\\\",\\\"vout\\\":0,\\\"scriptPubKey\\\":\\\"\$tx1_scriptpubkey\\\",\\\"amount\\\":\$tx1_amount}]\""
 sign_result_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" signrawtransactionwithwallet "$tx_hex_2" "[{\"txid\":\"$txid_1\",\"vout\":0,\"scriptPubKey\":\"$tx1_scriptpubkey\",\"amount\":$tx1_amount}]")
 signed_tx_2=$(echo "$sign_result_2" | jq -r '.hex')
 complete_2=$(echo "$sign_result_2" | jq -r '.complete')
@@ -299,11 +310,13 @@ pause_and_show "Waiting for transaction 1 to be confirmed..."
 echo "[25.5] Mining a block to confirm transaction 1..."
 
 # Get a wallet address to mine to
+echo "[25.5] Running: $BTC_CLI -rpcwallet=\"nftcharm_wallet\" getnewaddress"
 mine_address=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
 
 # Mine one block to confirm transaction 1
 if [ "$NETWORK" = "regtest" ]; then
     # On regtest, we can mine blocks instantly
+    echo "[25.5] Running: $BTC_CLI generatetoaddress 1 \"\$mine_address\""
     $BTC_CLI generatetoaddress 1 "$mine_address" > /dev/null
     echo "[25.5] ✓ Block mined, transaction 1 confirmed"
 else
@@ -312,6 +325,7 @@ else
     confirmed=false
     for i in {1..60}; do
         # Check if transaction 1 has confirmations
+        echo "[25.5] Running: $BTC_CLI gettransaction \"\$txid_1\""
         tx_info=$($BTC_CLI gettransaction "$txid_1" 2>/dev/null || echo "{}")
         confirmations=$(echo "$tx_info" | jq -r '.confirmations // 0')
 
@@ -333,6 +347,7 @@ fi
 
 # Step 25.6: Test transaction 2 with mempool acceptance
 pause_and_show "Testing transaction 2 with mempool acceptance..."
+echo "[25.6] Running: $BTC_CLI testmempoolaccept \"[\\\"\$signed_tx_2\\\"]\""
 test_result_2=$($BTC_CLI testmempoolaccept "[\"$signed_tx_2\"]")
 echo "[25.6] Test result:"
 echo "$test_result_2" | jq '.'
@@ -350,6 +365,7 @@ echo "[25.6] ✓ Transaction 2 passed mempool acceptance test"
 # Step 26: Submit transaction 2 to Bitcoin network
 pause_and_show "Submitting second transaction to Bitcoin network..."
 echo "[26] Attempting to broadcast second transaction..."
+echo "[26] Running: $BTC_CLI sendrawtransaction \"\$signed_tx_2\""
 if txid_2=$($BTC_CLI sendrawtransaction "$signed_tx_2" 2>&1); then
     echo "[26] ✓ Second transaction submitted successfully: $txid_2"
 else
