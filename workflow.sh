@@ -118,8 +118,11 @@ echo "[11] Wallet balance: $balance BTC"
 
 # If balance is 0, check unconfirmed balance
 if [ "$(echo "$balance == 0" | bc)" -eq 1 ]; then
-    unconfirmed_balance=$($BTC_CLI -rpcwallet="nftcharm_wallet" getunconfirmedbalance)
-    echo "[11] Unconfirmed balance: $unconfirmed_balance BTC"
+    balances_info=$($BTC_CLI -rpcwallet="nftcharm_wallet" getbalances 2>/dev/null || echo "{}")
+    if [ -n "$balances_info" ] && [ "$balances_info" != "{}" ]; then
+        unconfirmed_balance=$(echo "$balances_info" | jq -r '.mine.untrusted_pending // 0')
+        echo "[11] Unconfirmed balance: $unconfirmed_balance BTC"
+    fi
 fi
 
 # Step 12: Check for unspent bitcoin outputs
