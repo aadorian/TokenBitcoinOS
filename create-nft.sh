@@ -1,11 +1,11 @@
 #!/bin/bash
 set -e
 
-# Mint Tokens Script
-# Mints tokens from an NFT with remaining supply
+# Create New NFT Script
+# Creates a fresh NFT with proper witness data for token minting
 
 echo "=========================================="
-echo "NFTCharm Token Minting"
+echo "NFTCharm - Create New NFT"
 echo "=========================================="
 echo ""
 
@@ -50,59 +50,89 @@ fi
 # Navigate to my-token directory
 cd my-token
 
-# Get app details
+# Get app verification key
 echo ""
 echo "Getting app details..."
 export app_vk=$(charms app vk)
-export original_witness_utxo="d8786af1e7e597d77c073905fd6fd7053e4d12894eefa19c5deb45842fc2a8a2:2"
-export app_id=$(echo -n "$original_witness_utxo" | sha256sum | cut -d' ' -f1)
-echo "App ID: $app_id"
 echo "App VK: $app_vk"
 
-# Set NFT UTXO (the one with remaining supply)
-export in_utxo_1="b8471ec2c860a12e78a97409e8c43e5498456799a379e86f61af63c7a766044d:0"
+# Select a new witness UTXO (use any unspent UTXO with sufficient BTC)
 echo ""
-echo "NFT UTXO: $in_utxo_1"
+echo "Selecting witness UTXO..."
+WITNESS_INFO=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | select(.amount > 0.0001) | "\(.txid):\(.vout) \(.amount)"' | head -n1)
 
-# Get addresses for outputs
-export addr_1=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
-export addr_2=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
-
-echo "Token output address: $addr_1"
-echo "NFT change address: $addr_2"
-
-# Get the NFT transaction
-echo ""
-echo "Fetching NFT transaction..."
-nft_txid=$(echo $in_utxo_1 | cut -d':' -f1)
-export prev_txs=$($BTC_CLI -rpcwallet="nftcharm_wallet" gettransaction "$nft_txid" 2>/dev/null | jq -r '.hex')
-if [ -z "$prev_txs" ] || [ "$prev_txs" = "null" ]; then
-    echo "ERROR: Failed to fetch NFT transaction"
+if [ -z "$WITNESS_INFO" ]; then
+    echo "ERROR: No suitable witness UTXO found"
+    echo "You need a UTXO with > 0.0001 BTC"
     exit 1
 fi
-echo "✓ NFT transaction fetched"
 
-# Display the spell
+export witness_utxo=$(echo $WITNESS_INFO | cut -d' ' -f1)
+witness_amount=$(echo $WITNESS_INFO | cut -d' ' -f2)
+echo "Witness UTXO: $witness_utxo ($witness_amount BTC)"
+
+# Calculate new app_id from this witness UTXO
+export new_app_id=$(echo -n "$witness_utxo" | sha256sum | cut -d' ' -f1)
+echo "New App ID: $new_app_id"
+
+# Get output address for the NFT
+export nft_address=$($BTC_CLI -rpcwallet="nftcharm_wallet" getnewaddress)
+echo "NFT output address: $nft_address"
+
+# Get the witness transaction
 echo ""
-echo "Mint Spell:"
+echo "Fetching witness transaction..."
+witness_txid=$(echo $witness_utxo | cut -d':' -f1)
+export prev_txs=$($BTC_CLI -rpcwallet="nftcharm_wallet" gettransaction "$witness_txid" 2>/dev/null | jq -r '.hex')
+if [ -z "$prev_txs" ] || [ "$prev_txs" = "null" ]; then
+    echo "ERROR: Failed to fetch witness transaction"
+    exit 1
+fi
+echo "✓ Witness transaction fetched"
+
+# Create NFT spell YAML
+echo ""
+echo "Creating NFT spell..."
+cat > /tmp/create_nft.yaml <<EOF
+version: 8
+
+apps:
+  \$00: n/$new_app_id/$app_vk
+
+private_inputs:
+  \$00: "$witness_utxo"
+
+ins:
+  - utxo_id: $witness_utxo
+    charms: {}
+
+outs:
+  - address: $nft_address
+    charms:
+      \$00:
+        ticker: MY-TOKEN
+        remaining: 100000
+EOF
+
+echo "NFT Spell:"
 echo "============================================"
-cat ./spells/mint-token.yaml | envsubst
+cat /tmp/create_nft.yaml
 echo "============================================"
 
 # Validate spell
 echo ""
 echo "Validating spell..."
 app_bin="target/wasm32-wasip1/release/my-token.wasm"
-if ! cat ./spells/mint-token.yaml | envsubst | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin; then
+if ! cat /tmp/create_nft.yaml | charms spell check --prev-txs=$prev_txs --app-bins=$app_bin; then
     echo "ERROR: Spell validation failed"
     exit 1
 fi
 echo "✓ Spell valid"
 
-# Get funding UTXO
+# Get funding UTXO (different from witness)
 echo ""
 echo "Getting funding UTXO..."
-FUNDING_INFO=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | select(.amount > 0.0001 and (.txid + ":" + (.vout|tostring)) != "'$in_utxo_1'") | "\(.txid):\(.vout) \(.amount)"' | head -n1)
+FUNDING_INFO=$($BTC_CLI -rpcwallet="nftcharm_wallet" listunspent | jq -r '.[] | select(.amount > 0.0001 and (.txid + ":" + (.vout|tostring)) != "'$witness_utxo'") | "\(.txid):\(.vout) \(.amount)"' | head -n1)
 
 if [ -z "$FUNDING_INFO" ]; then
     echo "ERROR: No suitable funding UTXO found"
@@ -122,7 +152,7 @@ echo ""
 echo "Generating proof and transactions..."
 export RUST_LOG=info
 
-prove_output=$(cat ./spells/mint-token.yaml | envsubst | \
+prove_output=$(cat /tmp/create_nft.yaml | \
     charms spell prove \
         --app-bins="$app_bin" \
         --prev-txs=$prev_txs \
@@ -188,17 +218,20 @@ fi
 
 echo ""
 echo "=========================================="
-echo "✓ Token Minting Complete!"
+echo "✓ NFT Created Successfully!"
 echo "=========================================="
 echo "Commit TX: $txid_1"
-echo "Spell TX:  $txid_2"
+echo "NFT TX:    $txid_2"
 echo ""
-echo "Minted 69,420 tokens to: $addr_1"
-echo "NFT with 30,580 remaining to: $addr_2"
+echo "NFT UTXO: $txid_2:0"
+echo "App ID:   $new_app_id"
 echo ""
-echo "To find your token UTXO, run:"
-echo "  bitcoin-cli -testnet4 -rpcwallet=\"nftcharm_wallet\" listunspent"
+echo "This NFT has 100,000 remaining supply."
 echo ""
-echo "The token UTXO will be: $txid_2:0"
-echo "Use this UTXO in transfer-tokens.sh"
+echo "To use this NFT for minting tokens:"
+echo "1. Update mint-tokens.sh with:"
+echo "   export in_utxo_1=\"$txid_2:0\""
+echo "   export original_witness_utxo=\"$witness_utxo\""
+echo ""
+echo "2. Then run: ./mint-tokens.sh"
 echo "=========================================="
