@@ -269,7 +269,7 @@ fi
 pause_and_show "Signing second transaction with wallet..."
 
 # Decode transaction 1 to get output details
-decoded_tx_1=$(echo "$signed_tx_1" | $BTC_CLI decoderawtransaction /dev/stdin)
+decoded_tx_1=$($BTC_CLI decoderawtransaction "$signed_tx_1")
 tx1_scriptpubkey=$(echo "$decoded_tx_1" | jq -r '.vout[0].scriptPubKey.hex')
 tx1_amount=$(echo "$decoded_tx_1" | jq -r '.vout[0].value')
 
