@@ -357,11 +357,35 @@ app.post('/scripts/mint-tokens', async (req, res) => {
     }
 });
 
-// Execute transfer-tokens.sh
+// Execute transfer-tokens.sh (interactive version - shows instructions)
 app.post('/scripts/transfer-tokens', async (req, res) => {
     try {
         const result = await executeScript('transfer-tokens.sh');
         res.json(result);
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// Get available token UTXOs for transfer
+app.get('/tokens/utxos', async (req, res) => {
+    try {
+        // Get all UTXOs from wallet
+        const utxos = await execBitcoinCli('listunspent');
+
+        // Filter for likely token UTXOs (small amounts, could be dust)
+        const tokenUtxos = utxos.filter(utxo => utxo.amount < 0.0001);
+
+        res.json({
+            count: tokenUtxos.length,
+            utxos: tokenUtxos.map(utxo => ({
+                txid: utxo.txid,
+                vout: utxo.vout,
+                amount: utxo.amount,
+                address: utxo.address,
+                utxo_id: `${utxo.txid}:${utxo.vout}`
+            }))
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }

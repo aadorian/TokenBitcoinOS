@@ -610,21 +610,21 @@ async function loadTokenTransfers() {
     }
 
     container.innerHTML = transfers.map(transfer => `
-        <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200 hover:shadow-xl transition">
+        <div class="bg-gradient-to-r from-orange-50 to-yellow-50 rounded-lg p-6 border border-orange-200 hover:shadow-xl transition">
             <div class="flex items-start justify-between mb-4">
                 <div>
                     <div class="flex items-center gap-2 mb-2">
-                        <span class="bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                        <span class="bg-orange-500 text-white px-3 py-1 rounded-full text-sm font-bold">
                             <i class="fas fa-coins mr-1"></i>${transfer.ticker}
                         </span>
-                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                        <span class="bg-yellow-100 text-yellow-800 px-3 py-1 rounded-full text-xs font-semibold">
                             ${transfer.type.toUpperCase()}
                         </span>
                     </div>
                     <p class="text-sm text-gray-600">${transfer.timestamp.toLocaleDateString()}</p>
                 </div>
                 <div class="text-right">
-                    <div class="text-3xl font-bold text-purple-600">${transfer.tokenAmount.toLocaleString()}</div>
+                    <div class="text-3xl font-bold text-orange-500">${transfer.tokenAmount.toLocaleString()}</div>
                     <div class="text-sm text-gray-600">Tokens Minted</div>
                 </div>
             </div>
@@ -632,10 +632,10 @@ async function loadTokenTransfers() {
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="bg-white rounded-lg p-4">
                     <div class="flex items-center gap-2 mb-2">
-                        <i class="fas fa-coins text-blue-600"></i>
+                        <i class="fas fa-coins text-orange-500"></i>
                         <span class="text-sm font-semibold text-gray-700">Token Output</span>
                     </div>
-                    <div class="text-2xl font-bold text-blue-600 mb-2">${transfer.tokenAmount.toLocaleString()}</div>
+                    <div class="text-2xl font-bold text-orange-500 mb-2">${transfer.tokenAmount.toLocaleString()}</div>
                     <div class="text-xs font-mono bg-gray-100 p-2 rounded break-all">
                         ${transfer.tokenAddress}
                     </div>
@@ -657,14 +657,14 @@ async function loadTokenTransfers() {
                 <div class="bg-white rounded-lg p-3">
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-semibold text-gray-700">
-                            <i class="fas fa-file-alt text-purple-600 mr-2"></i>Commit TX
+                            <i class="fas fa-file-alt text-orange-500 mr-2"></i>Commit TX
                         </span>
-                        <button onclick="copyToClipboard('${transfer.commitTx}')" class="text-purple-600 hover:text-purple-700 text-xs">
+                        <button onclick="copyToClipboard('${transfer.commitTx}')" class="text-orange-500 hover:text-orange-600 text-xs">
                             <i class="fas fa-copy"></i>
                         </button>
                     </div>
-                    <a href="https://mempool.space/testnet/tx/${transfer.commitTx}" target="_blank"
-                       class="text-xs font-mono text-blue-600 hover:text-blue-800 break-all">
+                    <a href="https://mempool.space/testnet4/tx/${transfer.commitTx}" target="_blank"
+                       class="text-xs font-mono text-orange-500 hover:text-orange-600 break-all">
                         ${transfer.commitTx}
                     </a>
                 </div>
@@ -672,24 +672,27 @@ async function loadTokenTransfers() {
                 <div class="bg-white rounded-lg p-3">
                     <div class="flex items-center justify-between">
                         <span class="text-sm font-semibold text-gray-700">
-                            <i class="fas fa-magic text-blue-600 mr-2"></i>Spell TX
+                            <i class="fas fa-magic text-yellow-500 mr-2"></i>Spell TX
                         </span>
-                        <button onclick="copyToClipboard('${transfer.spellTx}')" class="text-purple-600 hover:text-purple-700 text-xs">
+                        <button onclick="copyToClipboard('${transfer.spellTx}')" class="text-orange-500 hover:text-orange-600 text-xs">
                             <i class="fas fa-copy"></i>
                         </button>
                     </div>
-                    <a href="https://mempool.space/testnet/tx/${transfer.spellTx}" target="_blank"
-                       class="text-xs font-mono text-blue-600 hover:text-blue-800 break-all">
+                    <a href="https://mempool.space/testnet4/tx/${transfer.spellTx}" target="_blank"
+                       class="text-xs font-mono text-orange-500 hover:text-orange-600 break-all">
                         ${transfer.spellTx}
                     </a>
                 </div>
             </div>
 
             <div class="mt-4 flex gap-2">
-                <button onclick="viewSpellTx('${transfer.spellTx}')" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                <button onclick="openTransferModal('${transfer.tokenAddress}', ${transfer.tokenAmount}, '${transfer.ticker}')" class="flex-1 bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <i class="fas fa-paper-plane mr-2"></i>Transfer
+                </button>
+                <button onclick="viewSpellTx('${transfer.spellTx}')" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     <i class="fas fa-eye mr-2"></i>View Spell
                 </button>
-                <button onclick="openExplorer('${transfer.spellTx}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                <button onclick="openExplorer('${transfer.spellTx}')" class="flex-1 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     <i class="fas fa-external-link-alt mr-2"></i>Explorer
                 </button>
             </div>
@@ -726,8 +729,88 @@ function viewSpellTx(txid) {
 
 // Open in block explorer
 function openExplorer(txid) {
-    window.open(`https://mempool.space/testnet/tx/${txid}`, '_blank');
+    window.open(`https://mempool.space/testnet4/tx/${txid}`, '_blank');
 }
+
+// Open transfer modal
+function openTransferModal(sourceAddress, availableBalance, ticker) {
+    const modal = document.getElementById('transferModal');
+    document.getElementById('transferTokenTicker').textContent = ticker || 'MY-TOKEN';
+    document.getElementById('transferAvailableBalance').textContent = availableBalance.toLocaleString();
+    document.getElementById('transferSourceAddress').textContent = sourceAddress;
+
+    // Store source address in modal for later use
+    modal.dataset.sourceAddress = sourceAddress;
+    modal.dataset.availableBalance = availableBalance;
+
+    // Reset form
+    document.getElementById('transferTokenForm').reset();
+    document.getElementById('transferOutput').style.display = 'none';
+    document.getElementById('transferTerminal').textContent = '';
+
+    // Show modal
+    modal.classList.remove('hidden');
+}
+
+// Close transfer modal
+function closeTransferModal() {
+    document.getElementById('transferModal').classList.add('hidden');
+}
+
+// Handle transfer form submission
+document.addEventListener('DOMContentLoaded', () => {
+    const transferForm = document.getElementById('transferTokenForm');
+
+    if (transferForm) {
+        transferForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const destAddress = document.getElementById('transferDestAddress').value.trim();
+            const amount = parseInt(document.getElementById('transferAmount').value);
+            const modal = document.getElementById('transferModal');
+            const sourceAddress = modal.dataset.sourceAddress;
+            const availableBalance = parseInt(modal.dataset.availableBalance);
+
+            // Validate amount
+            if (amount <= 0 || amount > availableBalance) {
+                showMessage(`Invalid amount. Available: ${availableBalance.toLocaleString()} tokens`, 'error');
+                return;
+            }
+
+            // Show output section
+            const outputDiv = document.getElementById('transferOutput');
+            const terminal = document.getElementById('transferTerminal');
+            outputDiv.style.display = 'block';
+            terminal.textContent = 'Initiating token transfer...\n';
+
+            try {
+                // Note: This is a placeholder - actual implementation would need to:
+                // 1. Get the source UTXO details
+                // 2. Call the transfer-tokens.sh script or implement the transfer logic
+                // 3. Handle the two-transaction commit/spell process
+
+                terminal.textContent += `\nTransfer Details:\n`;
+                terminal.textContent += `  From: ${sourceAddress}\n`;
+                terminal.textContent += `  To: ${destAddress}\n`;
+                terminal.textContent += `  Amount: ${amount.toLocaleString()} tokens\n\n`;
+                terminal.textContent += `Preparing transfer...\n`;
+
+                showMessage('Transfer feature is under development. This will execute transfer-tokens.sh script.', 'warning');
+
+                // TODO: Implement actual transfer by calling backend endpoint
+                terminal.textContent += `\nNOTE: Full transfer implementation requires:\n`;
+                terminal.textContent += `  - Source UTXO identification\n`;
+                terminal.textContent += `  - Spell generation with charms CLI\n`;
+                terminal.textContent += `  - Two-phase commit/spell transaction\n`;
+                terminal.textContent += `\nPlease use the command-line transfer-tokens.sh script for now.\n`;
+
+            } catch (error) {
+                terminal.textContent += `\nError: ${error.message}\n`;
+                showMessage(`Transfer error: ${error.message}`, 'error');
+            }
+        });
+    }
+});
 
 // Initialize tabs
 document.addEventListener('DOMContentLoaded', () => {
