@@ -34,14 +34,14 @@ function initWebSocket() {
 
 // Handle WebSocket messages
 function handleWebSocketMessage(data) {
-    const { type, script, stdout, stderr, code, success } = data;
+    const { type, script, data: output, stdout, stderr, code, success } = data;
 
     switch (type) {
         case 'stdout':
-            appendToTerminal(stdout, 'output');
+            appendToTerminal(stdout || output, 'output');
             break;
         case 'stderr':
-            appendToTerminal(stderr, 'error');
+            appendToTerminal(stderr || output, 'error');
             break;
         case 'exit':
             appendToTerminal(`\n[Script ${script} exited with code ${code}]\n`, success ? 'success' : 'error');
@@ -375,9 +375,9 @@ async function viewSpell() {
     }
 }
 
-// Initialize tabs with Flowbite
+// Initialize tabs
 document.addEventListener('DOMContentLoaded', () => {
-    // Initialize Flowbite tabs
+    // Initialize custom tabs
     const tabElements = [
         { id: 'dashboard', triggerEl: document.querySelector('#dashboard-tab'), targetEl: document.querySelector('#dashboard') },
         { id: 'send', triggerEl: document.querySelector('#send-tab'), targetEl: document.querySelector('#send') },
@@ -387,7 +387,7 @@ document.addEventListener('DOMContentLoaded', () => {
     ];
 
     // Create tabs instance
-    const tabs = new Tabs(tabElements[0].targetEl, tabElements);
+    const tabs = new Tabs(tabElements);
 
     // Show first tab by default
     tabs.show('dashboard');
@@ -411,9 +411,9 @@ document.addEventListener('DOMContentLoaded', () => {
     setInterval(fetchRecentTransactions, 30000);
 });
 
-// Simple Tabs implementation if Flowbite's doesn't work
+// Simple Tabs implementation
 class Tabs {
-    constructor(defaultTab, tabElements) {
+    constructor(tabElements) {
         this.tabs = tabElements;
         this.init();
     }
@@ -421,7 +421,8 @@ class Tabs {
     init() {
         this.tabs.forEach(tab => {
             if (tab.triggerEl) {
-                tab.triggerEl.addEventListener('click', () => {
+                tab.triggerEl.addEventListener('click', (e) => {
+                    e.preventDefault();
                     this.show(tab.id);
                 });
             }

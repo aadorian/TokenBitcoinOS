@@ -258,7 +258,7 @@ app.post('/scripts/check-balance', async (req, res) => {
     }
 });
 
-// Execute send-btc.sh
+// Execute send-btc.sh (non-interactive version for GUI)
 app.post('/scripts/send-btc', async (req, res) => {
     try {
         const { address, amount, feeRate } = req.body;
@@ -267,13 +267,71 @@ app.post('/scripts/send-btc', async (req, res) => {
             return res.status(400).json({ error: 'Address and amount are required' });
         }
 
-        const args = [address, amount];
-        if (feeRate) {
-            args.push(feeRate);
-        }
+        // Execute the transaction directly via bitcoin-cli
+        const scriptPath = path.join(__dirname, '..', 'send-btc.sh');
+        const scriptId = Date.now().toString();
+        const fee = feeRate || '1';
 
-        const result = await executeScript('send-btc.sh', args);
-        res.json(result);
+        return new Promise((resolve, reject) => {
+            const process = spawn('bash', [scriptPath, address, amount, fee], {
+                cwd: path.join(__dirname, '..')
+            });
+
+            let stdout = '';
+            let stderr = '';
+
+            // Auto-confirm by sending 'yes' to stdin
+            process.stdin.write('yes\n');
+            process.stdin.end();
+
+            process.stdout.on('data', (data) => {
+                const output = data.toString();
+                stdout += output;
+                broadcast({
+                    type: 'stdout',
+                    scriptId,
+                    script: 'send-btc.sh',
+                    data: output
+                });
+            });
+
+            process.stderr.on('data', (data) => {
+                const output = data.toString();
+                stderr += output;
+                broadcast({
+                    type: 'stderr',
+                    scriptId,
+                    script: 'send-btc.sh',
+                    data: output
+                });
+            });
+
+            process.on('close', (code) => {
+                const result = {
+                    code,
+                    stdout,
+                    stderr,
+                    success: code === 0
+                };
+
+                broadcast({
+                    type: 'exit',
+                    scriptId,
+                    script: 'send-btc.sh',
+                    ...result
+                });
+
+                if (code === 0) {
+                    resolve(res.json(result));
+                } else {
+                    reject(res.status(500).json({ error: stderr, ...result }));
+                }
+            });
+
+            process.on('error', (error) => {
+                reject(res.status(500).json({ error: error.message }));
+            });
+        });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
