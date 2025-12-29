@@ -342,6 +342,133 @@ async function transferTokens() {
     }
 }
 
+// Switch output view (terminal, json, formatted)
+function switchOutputView(view) {
+    const views = ['terminal', 'json', 'formatted'];
+    views.forEach(v => {
+        const element = document.getElementById(`txOutput${v.charAt(0).toUpperCase() + v.slice(1)}`);
+        const button = document.getElementById(`${v}TabBtn`);
+        if (v === view) {
+            element.style.display = 'block';
+            button.classList.add('active');
+        } else {
+            element.style.display = 'none';
+            button.classList.remove('active');
+        }
+    });
+}
+
+// Format JSON with syntax highlighting
+function formatJson(obj, indent = 0) {
+    const indentStr = '  '.repeat(indent);
+
+    if (obj === null) {
+        return `<span class="json-null">null</span>`;
+    }
+
+    if (typeof obj === 'boolean') {
+        return `<span class="json-boolean">${obj}</span>`;
+    }
+
+    if (typeof obj === 'number') {
+        return `<span class="json-number">${obj}</span>`;
+    }
+
+    if (typeof obj === 'string') {
+        return `<span class="json-string">"${obj}"</span>`;
+    }
+
+    if (Array.isArray(obj)) {
+        if (obj.length === 0) return `<span class="json-bracket">[]</span>`;
+
+        let html = `<span class="json-bracket">[</span>\n`;
+        obj.forEach((item, i) => {
+            html += `${indentStr}  ${formatJson(item, indent + 1)}`;
+            if (i < obj.length - 1) html += ',';
+            html += '\n';
+        });
+        html += `${indentStr}<span class="json-bracket">]</span>`;
+        return html;
+    }
+
+    if (typeof obj === 'object') {
+        const keys = Object.keys(obj);
+        if (keys.length === 0) return `<span class="json-bracket">{}</span>`;
+
+        const id = `json-${Math.random().toString(36).substr(2, 9)}`;
+        let html = `<div class="json-line json-collapsible" onclick="toggleJsonSection('${id}')">`;
+        html += `<span class="json-expand-icon expanded">▶</span>`;
+        html += `<span class="json-bracket">{</span>`;
+        html += `<span class="text-gray-500 ml-2">${keys.length} ${keys.length === 1 ? 'item' : 'items'}</span>`;
+        html += `</div>`;
+        html += `<div id="${id}" class="json-section">`;
+
+        keys.forEach((key, i) => {
+            html += `<div class="json-line" style="margin-left: ${(indent + 1) * 20}px">`;
+            html += `<span class="json-key">"${key}"</span>: `;
+            html += formatJson(obj[key], indent + 1);
+            if (i < keys.length - 1) html += ',';
+            html += `</div>`;
+        });
+
+        html += `<div class="json-line" style="margin-left: ${indent * 20}px">`;
+        html += `<span class="json-bracket">}</span>`;
+        html += `</div>`;
+        html += `</div>`;
+        return html;
+    }
+
+    return String(obj);
+}
+
+// Toggle JSON section collapse/expand
+function toggleJsonSection(id) {
+    const section = document.getElementById(id);
+    const icon = event.target.closest('.json-collapsible').querySelector('.json-expand-icon');
+
+    if (section.style.display === 'none') {
+        section.style.display = 'block';
+        icon.classList.add('expanded');
+    } else {
+        section.style.display = 'none';
+        icon.classList.remove('expanded');
+    }
+}
+
+// Parse transaction output to JSON
+function parseTransactionOutput(stdout) {
+    try {
+        // Try to extract JSON from output
+        const jsonMatch = stdout.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+
+        // Otherwise create a structured object from the text
+        const lines = stdout.split('\n');
+        const result = {
+            transaction: {},
+            witness: [],
+            outputs: [],
+            inputs: []
+        };
+
+        lines.forEach(line => {
+            if (line.includes('Transaction ID:')) {
+                result.transaction.txid = line.split(':')[1]?.trim();
+            } else if (line.includes('Size:')) {
+                result.transaction.size = line.match(/\d+/)?.[0];
+            } else if (line.includes('vSize:')) {
+                result.transaction.vsize = line.match(/\d+/)?.[0];
+            }
+        });
+
+        return result;
+    } catch (error) {
+        return { error: 'Could not parse output', raw: stdout };
+    }
+}
+
 // View spell
 async function viewSpell() {
     const txid = document.getElementById('txidInput').value.trim();
@@ -351,28 +478,105 @@ async function viewSpell() {
         return;
     }
 
-    const output = document.getElementById('txOutput');
-    output.textContent = 'Loading transaction...\n';
+    const terminalOutput = document.getElementById('txOutputTerminal');
+    const jsonOutput = document.getElementById('txOutputJson');
+    const formattedOutput = document.getElementById('txOutputFormatted');
+
+    terminalOutput.textContent = 'Loading transaction...\n';
+    jsonOutput.innerHTML = '<div class="text-gray-400">Loading...</div>';
+    formattedOutput.innerHTML = '<div class="bg-white rounded-lg p-6"><div class="text-gray-500">Loading...</div></div>';
 
     try {
         const response = await fetch(`${API_URL}/scripts/spell`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ txid, detailed: false })
+            body: JSON.stringify({ txid, detailed: true })
         });
 
         const data = await response.json();
 
         if (data.success) {
-            output.textContent = data.stdout;
+            // Terminal view
+            terminalOutput.textContent = data.stdout;
+
+            // JSON view
+            const txData = parseTransactionOutput(data.stdout);
+            jsonOutput.innerHTML = formatJson(txData);
+
+            // Formatted view
+            formattedOutput.innerHTML = createFormattedView(txData, txid);
+
+            showMessage('Transaction loaded successfully', 'success');
         } else {
-            output.textContent = data.stderr || data.error;
+            terminalOutput.textContent = data.stderr || data.error;
+            jsonOutput.innerHTML = `<div class="text-red-400">Error: ${data.error}</div>`;
+            formattedOutput.innerHTML = `<div class="bg-white rounded-lg p-6"><div class="text-red-500">Error loading transaction</div></div>`;
             showMessage('Failed to load transaction', 'error');
         }
     } catch (error) {
-        output.textContent = `Error: ${error.message}`;
+        const errorMsg = `Error: ${error.message}`;
+        terminalOutput.textContent = errorMsg;
+        jsonOutput.innerHTML = `<div class="text-red-400">${errorMsg}</div>`;
+        formattedOutput.innerHTML = `<div class="bg-white rounded-lg p-6"><div class="text-red-500">${errorMsg}</div></div>`;
         showMessage(`Error: ${error.message}`, 'error');
     }
+}
+
+// Create formatted card view
+function createFormattedView(txData, txid) {
+    return `
+        <div class="bg-white rounded-lg p-6 shadow-lg">
+            <div class="border-b pb-4 mb-4">
+                <h3 class="text-xl font-bold text-gray-800 mb-2">
+                    <i class="fas fa-file-alt text-purple-600 mr-2"></i>Transaction Details
+                </h3>
+                <div class="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                    ${txid}
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                <div class="bg-purple-50 rounded-lg p-4">
+                    <div class="text-sm text-gray-600 mb-1">Size</div>
+                    <div class="text-2xl font-bold text-purple-600">${txData.transaction?.size || 'N/A'}</div>
+                    <div class="text-xs text-gray-500">bytes</div>
+                </div>
+                <div class="bg-blue-50 rounded-lg p-4">
+                    <div class="text-sm text-gray-600 mb-1">vSize</div>
+                    <div class="text-2xl font-bold text-blue-600">${txData.transaction?.vsize || 'N/A'}</div>
+                    <div class="text-xs text-gray-500">vbytes</div>
+                </div>
+                <div class="bg-green-50 rounded-lg p-4">
+                    <div class="text-sm text-gray-600 mb-1">Inputs</div>
+                    <div class="text-2xl font-bold text-green-600">${txData.inputs?.length || 0}</div>
+                    <div class="text-xs text-gray-500">UTXOs</div>
+                </div>
+            </div>
+
+            <div class="space-y-4">
+                <div>
+                    <h4 class="font-semibold text-gray-700 mb-2">
+                        <i class="fas fa-code text-blue-600 mr-2"></i>Witness Data
+                    </h4>
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        ${txData.witness && txData.witness.length > 0
+                            ? txData.witness.map(w => `<div class="text-sm font-mono text-gray-700 mb-2">${w}</div>`).join('')
+                            : '<div class="text-sm text-gray-500">No witness data available</div>'
+                        }
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="copyToClipboard('${txid}')" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-copy mr-2"></i>Copy TX ID
+                    </button>
+                    <button onclick="openExplorer('${txid}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                        <i class="fas fa-external-link-alt mr-2"></i>View on Explorer
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // Load and display token transfers

@@ -33,6 +33,74 @@
             word-wrap: break-word;
         }
 
+        .json-viewer {
+            background: #1e293b;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+
+        .json-key {
+            color: #60a5fa;
+            font-weight: 600;
+        }
+
+        .json-string {
+            color: #10b981;
+        }
+
+        .json-number {
+            color: #f59e0b;
+        }
+
+        .json-boolean {
+            color: #8b5cf6;
+        }
+
+        .json-null {
+            color: #6b7280;
+        }
+
+        .json-bracket {
+            color: #9ca3af;
+        }
+
+        .json-line {
+            padding: 2px 0;
+            transition: background 0.2s;
+        }
+
+        .json-line:hover {
+            background: rgba(96, 165, 250, 0.1);
+        }
+
+        .json-collapsible {
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .json-collapsible:hover {
+            background: rgba(96, 165, 250, 0.15);
+        }
+
+        .json-collapsed {
+            display: none;
+        }
+
+        .json-expand-icon {
+            display: inline-block;
+            width: 12px;
+            transition: transform 0.2s;
+            color: #60a5fa;
+        }
+
+        .json-expand-icon.expanded {
+            transform: rotate(90deg);
+        }
+
         .status-dot {
             width: 8px;
             height: 8px;
@@ -59,6 +127,31 @@
         .script-card:hover {
             transform: translateY(-2px);
             transition: transform 0.2s;
+        }
+
+        .output-tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .output-tab {
+            padding: 0.5rem 1rem;
+            background: #1e293b;
+            color: #9ca3af;
+            border: none;
+            border-radius: 0.5rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .output-tab.active {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .output-tab:hover {
+            background: #374151;
         }
     </style>
 </head>
@@ -260,15 +353,41 @@
                     <div class="mb-4">
                         <label class="block mb-2 text-sm font-medium text-gray-900">Transaction ID</label>
                         <div class="flex gap-2">
-                            <input type="text" id="txidInput" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5" placeholder="Enter transaction ID...">
+                            <input type="text" id="txidInput" class="bg-gray-50 border border-gray-300 text-gray-900 text-sm rounded-lg focus:ring-purple-500 focus:border-purple-500 block w-full p-2.5" placeholder="Enter transaction ID or paste: d6e5f0212be34134ae51e0a595aa573e68a948f79d634175430888183bdf92c5">
                             <button onclick="viewSpell()" class="text-white bg-purple-600 hover:bg-purple-700 font-medium rounded-lg text-sm px-5 py-2.5">
                                 <i class="fas fa-search mr-2"></i>View
                             </button>
                         </div>
                     </div>
 
-                    <div id="txOutput" class="terminal-output">
+                    <!-- Output Tabs -->
+                    <div class="output-tabs">
+                        <button class="output-tab active" onclick="switchOutputView('terminal')" id="terminalTabBtn">
+                            <i class="fas fa-terminal mr-2"></i>Terminal
+                        </button>
+                        <button class="output-tab" onclick="switchOutputView('json')" id="jsonTabBtn">
+                            <i class="fas fa-code mr-2"></i>JSON
+                        </button>
+                        <button class="output-tab" onclick="switchOutputView('formatted')" id="formattedTabBtn">
+                            <i class="fas fa-list mr-2"></i>Formatted
+                        </button>
+                    </div>
+
+                    <!-- Terminal Output -->
+                    <div id="txOutputTerminal" class="terminal-output">
                         Enter a transaction ID to view spell data...
+                    </div>
+
+                    <!-- JSON Output -->
+                    <div id="txOutputJson" class="json-viewer" style="display: none;">
+                        <div class="text-gray-400">JSON view will appear here...</div>
+                    </div>
+
+                    <!-- Formatted Output -->
+                    <div id="txOutputFormatted" style="display: none;">
+                        <div class="bg-white rounded-lg p-6 shadow-lg">
+                            <div class="text-gray-500 text-center">Formatted view will appear here...</div>
+                        </div>
                     </div>
                 </div>
             </div>
