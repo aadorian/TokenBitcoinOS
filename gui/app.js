@@ -375,6 +375,156 @@ async function viewSpell() {
     }
 }
 
+// Load and display token transfers
+async function loadTokenTransfers() {
+    const container = document.getElementById('tokenTransfers');
+
+    // Example transfer data - you can replace this with actual API calls
+    const transfers = [
+        {
+            id: 1,
+            type: 'mint',
+            commitTx: 'e20572b13dc900ebbf7b42fda56b156377f01153a4b505d9dc9594c439fd93fd',
+            spellTx: 'd6e5f0212be34134ae51e0a595aa573e68a948f79d634175430888183bdf92c5',
+            tokenAmount: 69420,
+            tokenAddress: 'tb1px6jrge3dynx9tjp6vwp7xrq9a3gm9dqpz9jts4jezhvlulayvrqq9rcrz3',
+            nftRemaining: 30580,
+            nftAddress: 'tb1p40c5eywchazxa4t3jdytnc39c3g8l2tzegzk7zgrzcdm324xce3qww4eud',
+            timestamp: new Date('2024-01-15'),
+            ticker: 'MY-TOKEN'
+        }
+    ];
+
+    if (transfers.length === 0) {
+        container.innerHTML = `
+            <div class="text-center py-8 text-gray-500">
+                <i class="fas fa-inbox text-4xl mb-3"></i>
+                <p>No token transfers found</p>
+            </div>
+        `;
+        return;
+    }
+
+    container.innerHTML = transfers.map(transfer => `
+        <div class="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200 hover:shadow-xl transition">
+            <div class="flex items-start justify-between mb-4">
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="bg-purple-600 text-white px-3 py-1 rounded-full text-sm font-bold">
+                            <i class="fas fa-coins mr-1"></i>${transfer.ticker}
+                        </span>
+                        <span class="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-semibold">
+                            ${transfer.type.toUpperCase()}
+                        </span>
+                    </div>
+                    <p class="text-sm text-gray-600">${transfer.timestamp.toLocaleDateString()}</p>
+                </div>
+                <div class="text-right">
+                    <div class="text-3xl font-bold text-purple-600">${transfer.tokenAmount.toLocaleString()}</div>
+                    <div class="text-sm text-gray-600">Tokens Minted</div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div class="bg-white rounded-lg p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fas fa-coins text-blue-600"></i>
+                        <span class="text-sm font-semibold text-gray-700">Token Output</span>
+                    </div>
+                    <div class="text-2xl font-bold text-blue-600 mb-2">${transfer.tokenAmount.toLocaleString()}</div>
+                    <div class="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                        ${transfer.tokenAddress}
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg p-4">
+                    <div class="flex items-center gap-2 mb-2">
+                        <i class="fas fa-gem text-yellow-600"></i>
+                        <span class="text-sm font-semibold text-gray-700">NFT Remaining</span>
+                    </div>
+                    <div class="text-2xl font-bold text-yellow-600 mb-2">${transfer.nftRemaining.toLocaleString()}</div>
+                    <div class="text-xs font-mono bg-gray-100 p-2 rounded break-all">
+                        ${transfer.nftAddress}
+                    </div>
+                </div>
+            </div>
+
+            <div class="space-y-2">
+                <div class="bg-white rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-gray-700">
+                            <i class="fas fa-file-alt text-purple-600 mr-2"></i>Commit TX
+                        </span>
+                        <button onclick="copyToClipboard('${transfer.commitTx}')" class="text-purple-600 hover:text-purple-700 text-xs">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <a href="https://mempool.space/testnet/tx/${transfer.commitTx}" target="_blank"
+                       class="text-xs font-mono text-blue-600 hover:text-blue-800 break-all">
+                        ${transfer.commitTx}
+                    </a>
+                </div>
+
+                <div class="bg-white rounded-lg p-3">
+                    <div class="flex items-center justify-between">
+                        <span class="text-sm font-semibold text-gray-700">
+                            <i class="fas fa-magic text-blue-600 mr-2"></i>Spell TX
+                        </span>
+                        <button onclick="copyToClipboard('${transfer.spellTx}')" class="text-purple-600 hover:text-purple-700 text-xs">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </div>
+                    <a href="https://mempool.space/testnet/tx/${transfer.spellTx}" target="_blank"
+                       class="text-xs font-mono text-blue-600 hover:text-blue-800 break-all">
+                        ${transfer.spellTx}
+                    </a>
+                </div>
+            </div>
+
+            <div class="mt-4 flex gap-2">
+                <button onclick="viewSpellTx('${transfer.spellTx}')" class="flex-1 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <i class="fas fa-eye mr-2"></i>View Spell
+                </button>
+                <button onclick="openExplorer('${transfer.spellTx}')" class="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    <i class="fas fa-external-link-alt mr-2"></i>Explorer
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+// Helper function to copy to clipboard
+async function copyToClipboard(text) {
+    try {
+        await navigator.clipboard.writeText(text);
+        showMessage('Copied to clipboard!', 'success');
+    } catch (error) {
+        showMessage('Failed to copy', 'error');
+    }
+}
+
+// View spell transaction
+function viewSpellTx(txid) {
+    // Switch to transactions tab
+    const tabs = document.querySelectorAll('[role="tab"]');
+    tabs.forEach(tab => {
+        if (tab.id === 'transactions-tab') {
+            tab.click();
+        }
+    });
+
+    // Set the txid and view
+    setTimeout(() => {
+        document.getElementById('txidInput').value = txid;
+        viewSpell();
+    }, 100);
+}
+
+// Open in block explorer
+function openExplorer(txid) {
+    window.open(`https://mempool.space/testnet/tx/${txid}`, '_blank');
+}
+
 // Initialize tabs
 document.addEventListener('DOMContentLoaded', () => {
     // Initialize custom tabs
@@ -424,6 +574,11 @@ class Tabs {
                 tab.triggerEl.addEventListener('click', (e) => {
                     e.preventDefault();
                     this.show(tab.id);
+
+                    // Load token transfers when NFT tab is opened
+                    if (tab.id === 'nft') {
+                        loadTokenTransfers();
+                    }
                 });
             }
         });
