@@ -1,27 +1,37 @@
 {
-  "name": "nftcharm-viewer",
-  "version": "1.0.0",
-  "description": "NFT and Token viewer for NFTCharm on Bitcoin Testnet4",
+  "name": "nftcharm-gui",
+  "version": "2.0.0",
+  "description": "NFTCharm GUI for managing Bitcoin NFTs and Tokens on Testnet4",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "nodemon server.js"
+    "dev": "nodemon server.js",
+    "build": "tsc",
+    "watch": "tsc --watch"
   },
   "keywords": [
     "nft",
     "bitcoin",
     "testnet4",
     "charms",
-    "blockchain"
+    "blockchain",
+    "typescript",
+    "flowbite"
   ],
   "author": "",
   "license": "MIT",
   "dependencies": {
     "cors": "^2.8.5",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "ws": "^8.14.2"
   },
   "devDependencies": {
-    "nodemon": "^3.0.1"
+    "@types/cors": "^2.8.15",
+    "@types/express": "^4.17.20",
+    "@types/node": "^20.9.0",
+    "@types/ws": "^8.5.9",
+    "nodemon": "^3.0.1",
+    "typescript": "^5.3.2"
   },
   "engines": {
     "node": ">=14.0.0"

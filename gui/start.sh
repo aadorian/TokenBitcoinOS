@@ -58,13 +58,21 @@ fi
 
 # Start the server
 echo "════════════════════════════════════════════"
-echo "Starting NFTCharm Viewer..."
+echo "Starting NFTCharm GUI..."
 echo "════════════════════════════════════════════"
 echo ""
 echo "Open your browser and navigate to:"
-echo "  http://localhost:3000"
+echo "  http://localhost:3000/app.html (New GUI)"
+echo "  http://localhost:3000/index.html (Old Viewer)"
 echo ""
 echo "Press Ctrl+C to stop the server"
 echo ""
 
-npm start
+# Use enhanced server if available, otherwise use standard server
+if [ -f "server-enhanced.js" ]; then
+    echo "Starting enhanced server with script execution..."
+    node server-enhanced.js
+else
+    echo "Starting standard server..."
+    npm start
+fi
