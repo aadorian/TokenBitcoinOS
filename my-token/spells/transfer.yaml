@@ -1,0 +1,28 @@
+version: 8
+
+apps:
+  $00: n/${app_id}/${app_vk}
+  $01: t/${app_id}/${app_vk}
+
+ins:
+  - utxo_id: ${token_utxo}
+    charms:
+      $01: ${token_in_amount}
+  - utxo_id: ${nft_utxo}
+    charms:
+      $00:
+        ticker: MY-TOKEN
+        remaining: ${nft_remaining}
+
+outs:
+  - address: ${recipient_addr}
+    charms:
+      $01: ${transfer_amount}
+  - address: ${token_change_addr}
+    charms:
+      $01: ${token_change_amount}
+  - address: ${nft_output_addr}
+    charms:
+      $00:
+        ticker: MY-TOKEN
+        remaining: ${nft_remaining}

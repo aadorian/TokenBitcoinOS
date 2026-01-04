@@ -92,17 +92,38 @@ pub fn app_contract(app: &App, tx: &Transaction, x: &Data, w: &Data) -> bool {
 ///
 /// Returns `true` if either NFT or token minting conditions are satisfied.
 ///
-/// # Note
-///
-/// TODO: Replace with your own logic
 fn nft_contract_satisfied(app: &App, tx: &Transaction, w: &Data) -> bool {
     let token_app = &App {
         tag: TOKEN,
         identity: app.identity.clone(),
         vk: app.vk.clone(),
     };
-    check!(can_mint_nft(app, tx, w) || can_mint_token(token_app, tx));
+    // Allow: minting new NFT, minting tokens, OR preserving NFT (for transfers)
+    check!(can_mint_nft(app, tx, w) || can_mint_token(token_app, tx) || can_preserve_nft(app, tx));
     true
+}
+
+/// Validates whether an NFT can be preserved (transferred without state change).
+///
+/// This allows the NFT to be moved between addresses while keeping its state unchanged.
+/// Used for pure token transfers where the NFT's remaining supply doesn't change.
+fn can_preserve_nft(nft_app: &App, tx: &Transaction) -> bool {
+    // Get NFT content from inputs
+    let Some(input_content): Option<NftContent> =
+        charm_values(nft_app, tx.ins.iter().map(|(_, v)| v)).find_map(|data| data.value().ok())
+    else {
+        return false;
+    };
+
+    // Get NFT content from outputs
+    let Some(output_content): Option<NftContent> =
+        charm_values(nft_app, tx.outs.iter()).find_map(|data| data.value().ok())
+    else {
+        return false;
+    };
+
+    // NFT is preserved if ticker and remaining supply are unchanged
+    input_content.ticker == output_content.ticker && input_content.remaining == output_content.remaining
 }
 
 /// Validates whether an NFT can be minted in the transaction.
@@ -188,12 +209,24 @@ pub fn hash(data: &str) -> B32 {
 ///
 /// Returns `true` if token minting conditions are satisfied.
 ///
-/// # Note
-///
-/// TODO: Replace with your own logic
 fn token_contract_satisfied(token_app: &App, tx: &Transaction) -> bool {
-    check!(can_mint_token(token_app, tx));
+    // Allow: pure transfer (balanced tokens) OR minting new tokens
+    check!(can_transfer_token(token_app, tx) || can_mint_token(token_app, tx));
     true
+}
+
+/// Validates whether tokens can be transferred (pure transfer, no minting).
+///
+/// A pure transfer requires total input token amount to equal total output token amount.
+fn can_transfer_token(token_app: &App, tx: &Transaction) -> bool {
+    let Some(input_amount) = sum_token_amount(token_app, tx.ins.iter().map(|(_, v)| v)).ok() else {
+        return false;
+    };
+    let Some(output_amount) = sum_token_amount(token_app, tx.outs.iter()).ok() else {
+        return false;
+    };
+    // Pure transfer: input equals output (no minting), and must have tokens
+    input_amount == output_amount && input_amount > 0
 }
 
 /// Validates whether tokens can be minted in the transaction.
