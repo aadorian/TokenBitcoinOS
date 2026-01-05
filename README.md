@@ -355,3 +355,6 @@ git config commit.template .gitmessage
 7. Push and create a Pull Request
 
 For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md)
+
+
+Video: https://youtu.be/CF38Nf-4QqY
